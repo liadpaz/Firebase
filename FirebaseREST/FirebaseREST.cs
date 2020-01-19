@@ -16,7 +16,6 @@ namespace FirebaseREST
         private static string storageURL;
 
         private static string signinURL = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword";
-        private static string authCredential = "?key=AIzaSyB0bQ2Ktoo9-YzmRy-MDpQKG3vpezozqMU";
 
         private static string idToken;
 
@@ -69,9 +68,9 @@ namespace FirebaseREST
             }
         }
 
-        public static async Task<bool> Login(string email, string password)
+        public static async Task<bool> Login(string email, string password, string authCredential)
         {
-            HttpResponseMessage response = await signinClient.PostAsync(authCredential, new StringContent(new UserAuth(email, password).ToString()));
+            HttpResponseMessage response = await signinClient.PostAsync($"key={authCredential}", new StringContent(new UserAuth(email, password).ToString()));
             
             if (response.IsSuccessStatusCode)
             {
