@@ -105,18 +105,13 @@ namespace FirebaseREST
         public static async Task<string> GetDatabaseData(string child)
         {
             HttpResponseMessage response = await client.GetAsync($"{child}.json?auth={idToken}");
-            if (response.IsSuccessStatusCode)
+
+            return response.StatusCode switch
             {
-                return await response.Content.ReadAsStringAsync();
-            }
-            else if (response.StatusCode == HttpStatusCode.Unauthorized)
-            {
-                throw new DatabaseException("You are not authorized to the database");
-            }
-            else
-            {
-                throw new DatabaseException("Unable to read from database");
-            }
+                HttpStatusCode.OK => await response.Content.ReadAsStringAsync(),
+                HttpStatusCode.Unauthorized => throw new DatabaseException("You are not authorized to the database"),
+                _ => throw new DatabaseException("Unable to read from database")
+            };
         }
 
         /// <summary>
@@ -124,9 +119,16 @@ namespace FirebaseREST
         /// </summary>
         /// <param name="child">the child in the database to delete</param>
         /// <returns></returns>
-        public static async Task DeleteDatabaseData(string child)
+        public static async Task<bool> DeleteDatabaseData(string child)
         {
-            await client.DeleteAsync($"{child}.json?auth={idToken}");
+            HttpResponseMessage response = await client.DeleteAsync($"{child}.json?auth={idToken}");
+
+            return response.StatusCode switch
+            {
+                HttpStatusCode.OK => true,
+                HttpStatusCode.Unauthorized => throw new DatabaseException("You are not authorized to the database"),
+                _ => false
+            };
         }
     }
 
