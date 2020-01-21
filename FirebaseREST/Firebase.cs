@@ -1,4 +1,8 @@
-﻿using System;
+﻿#pragma warning disable 649
+
+using System;
+using System.Linq;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -27,7 +31,7 @@ namespace Firebase
             return firebase;
         }
 
-        private Firebase() {}
+        private Firebase() { }
 
         /// <summary>
         /// This function returns the only instance of the FirebaseDatabase
@@ -64,52 +68,56 @@ namespace Firebase
 
     public sealed class DatabaseReference
     {
-        private static HttpClient client = new HttpClient();
-
-        string child;
+        private static readonly HttpClient client = new HttpClient();
+        
+        private readonly string child;
 
         /// <summary>
-        /// Internal constructor that can only be called from within this library, sets the databaseURL
+        /// Internal constructor that can only be called from within this library, sets the child of the database reference
         /// </summary>
         /// <param name="child">the databaseURL</param>
         internal DatabaseReference(string child)
         {
             this.child = child;
-            if (Read().GetAwaiter().GetResult() is bool)
+            if (client.BaseAddress == null)
             {
-                throw new DatabaseException("Child does not exist");
+                client.BaseAddress = new Uri($"https://{Firebase.projectName}.firebaseio.com/");
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             }
-            client.BaseAddress = new Uri($"https://{Firebase.projectName}.firebaseio.com/");
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         }
 
+        /// <summary>
+        /// Internal constructor that can only be called from within this library
+        /// </summary>
         internal DatabaseReference()
         {
             child = string.Empty;
-            client.BaseAddress = new Uri($"https://{Firebase.projectName}.firebaseio.com/");
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            if (client.BaseAddress == null)
+            {
+                client.BaseAddress = new Uri($"https://{Firebase.projectName}.firebaseio.com/");
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            }
         }
 
         /// <summary>
         /// This function returns the data from the database reference
         /// </summary>
         /// <returns>the data in the database</returns
-        public async Task<dynamic> Read()
+        public async Task<string> Read()
         {
-            HttpResponseMessage response = await client.GetAsync($"{child}.json?auth={FirebaseAuth.IdToken}");
-            Console.WriteLine(response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+            HttpResponseMessage response = await client.GetAsync($"{child}.json?print=pretty&auth={FirebaseAuth.IdToken}");
             return response.StatusCode switch
             {
                 HttpStatusCode.OK => await response.Content.ReadAsStringAsync(),
-                HttpStatusCode.Unauthorized => throw new DatabaseException("You are not authorized to the database"),
-                _ => false
+                HttpStatusCode.Unauthorized => throw new DatabaseAuthException("You are not authorized to the database"),
+                _ => null
             };
         }
 
         /// <summary>
         /// This function writes data in the database reference; return true if succeeded otherwise false
         /// </summary>
-        /// <exception cref="DatabaseException">thrown when the user is not permitted</exception>
+        /// <exception cref="DatabaseAuthException">thrown when the user is not permitted</exception>
         /// <param name="data">the data to write</param>
         /// <returns>true if succeeded otherwise false</returns>
         public async Task<bool> Write(string data)
@@ -119,7 +127,7 @@ namespace Firebase
             return response.StatusCode switch
             {
                 HttpStatusCode.OK => true,
-                HttpStatusCode.Unauthorized => throw new DatabaseException("You are not authorized to the database"),
+                HttpStatusCode.Unauthorized => throw new DatabaseAuthException("You are not authorized to the database"),
                 _ => false
             };
         }
@@ -127,7 +135,7 @@ namespace Firebase
         /// <summary>
         /// This function deletes the data in the child in the database
         /// </summary>
-        /// <exception cref="DatabaseException">throw when the user is not permitted</exception>
+        /// <exception cref="DatabaseAuthException">throw when the user is not permitted</exception>
         /// <returns>true if succeeded otherwise false</returns>
         public async Task<bool> Delete()
         {
@@ -136,7 +144,7 @@ namespace Firebase
             return response.StatusCode switch
             {
                 HttpStatusCode.OK => true,
-                HttpStatusCode.Unauthorized => throw new DatabaseException("You are not authorized to the database"),
+                HttpStatusCode.Unauthorized => throw new DatabaseAuthException("You are not authorized to the database"),
                 _ => false
             };
         }
@@ -146,9 +154,24 @@ namespace Firebase
         /// </summary>
         /// <param name="child">the child</param>
         /// <returns>database reference to <c>child</c> of the current reference</returns>
-        public DatabaseReference GetChild(string child)
+        public DatabaseReference Child(string child)
         {
             return new DatabaseReference($"{this.child}/{child}");
+        }
+
+        /// <summary>
+        /// This function returns the reference to the root of the database
+        /// </summary>
+        /// <returns>the reference to the root of the database</returns>
+        public DatabaseReference Root()
+        {
+            return new DatabaseReference();
+        }
+
+        public DatabaseReference GetParent()
+        {
+            string[] childs = child.Split("/");
+            return new DatabaseReference(string.Join("", childs.Take(childs.Length - 1)));
         }
     }
 
@@ -157,11 +180,21 @@ namespace Firebase
     /// </summary>
     public sealed class FirebaseAuth
     {
-        private static readonly string authURL = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword/";
+        private static readonly string signInURL = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword";
+        private static readonly string signUpURL = "https://identitytoolkit.googleapis.com/v1/accounts:signUp";
+        private static readonly string updateURL = "https://identitytoolkit.googleapis.com/v1/accounts:update";
 
-        private static HttpClient authClient = new HttpClient()
+        private static readonly HttpClient signInClient = new HttpClient
         {
-            BaseAddress = new Uri(authURL)
+            BaseAddress = new Uri(signInURL)
+        };
+        private static readonly HttpClient signUpClient = new HttpClient
+        {
+            BaseAddress = new Uri(signUpURL)
+        };
+        private static HttpClient updateClient = new HttpClient
+        {
+            BaseAddress = new Uri(updateURL)
         };
 
         internal static string IdToken
@@ -169,28 +202,29 @@ namespace Firebase
             private set;
             get;
         }
-        private string authCredential;
+        private string apiKey;
         public static bool IsLoggedIn
         {
             private set;
             get;
         } = false;
 
-        internal FirebaseAuth(string authCredential)
+        internal FirebaseAuth(string apiKey)
         {
-            authClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            signInClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            signUpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            updateClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
-            this.authCredential = authCredential;
+            this.apiKey = apiKey;
         }
 
         public async Task<bool> SignIn(string email, string password)
         {
-            HttpResponseMessage response = await authClient.PostAsync($"?key={authCredential}", new StringContent(new UserAuth(email, password).ToString()));
+            HttpResponseMessage response = await signInClient.PostAsync($"?key={apiKey}", new StringContent(new UserAuth(email, password).ToString()));
 
             if (response.IsSuccessStatusCode)
             {
-                IdToken = JsonConvert.DeserializeObject<FirebaseToken>(await response.Content.ReadAsStringAsync()).idToken;
-                Console.WriteLine(IdToken);
+                IdToken = JsonConvert.DeserializeObject<FirebaseUser>(await response.Content.ReadAsStringAsync()).idToken;
                 IsLoggedIn = true;
                 return true;
             }
@@ -198,17 +232,36 @@ namespace Firebase
             return false;
         }
 
-        //public async Task<bool> SignUp(string email, string password)
-        //{
+        public async Task<bool> SignUp(string email, string password)
+        {
+            HttpResponseMessage response = await signUpClient.PostAsync($"?key={apiKey}", new StringContent(new UserAuth(email, password).ToString()));
 
+            return response.IsSuccessStatusCode;
+        }
+
+        //public async Task<bool> UpdateName(string name)
+        //{
+        //    HttpResponseMessage response = await UpdateClient.PostAsync($"accounts:update?key={apiKey}", new StringContent(new UserAuth(email, password).ToString()));
+
+        //    return response.IsSuccessStatusCode;
         //}
+
+        public FirebaseUser GetCurrentUser()
+        {
+            return null;
+        }
     }
 
-    internal class DatabaseException : Exception
+    public class DatabaseException : Exception
     {
         public DatabaseException(string message) : base(message)
         {
         }
+    }
+
+    public class DatabaseAuthException : DatabaseException
+    {
+        public DatabaseAuthException(string message) : base(message) {}
     }
 
     internal class UserAuth
@@ -228,15 +281,36 @@ namespace Firebase
         }
     }
 
-    internal class FirebaseToken
+    internal class UpdateUserAuth
     {
-        public string kind;
+        public string idToken;
+        public string displayName;
+
+    }
+
+    public class FirebaseUser
+    {
+        internal string kind;
         public string localId;
         public string email;
         public string displayName;
         public string idToken;
-        public string registered;
-        public string refreshToken;
-        public string expiresIn;
+        internal string registered;
+        internal string refreshToken;
+        internal string expiresIn;
+    }
+
+    internal class FirebaseError
+    {
+        public class Error
+        {
+            public string domain;
+            public string reason;
+            public string message;
+        }
+
+        public List<string> errors;
+        public int code;
+        public string message;
     }
 }
