@@ -11,6 +11,9 @@ using Newtonsoft.Json;
 
 namespace Firebase
 {
+    /// <summary>
+    /// This class is for the general Firebase
+    /// </summary>
     public sealed class Firebase
     {
         private static Firebase firebase = null;
@@ -19,6 +22,12 @@ namespace Firebase
 
         internal static string projectName;
 
+        /// <summary>
+        /// This function initializes the only Firebase instance on the app
+        /// </summary>
+        /// <param name="projectName">the Firebase project name</param>
+        /// <param name="authCredential">the Web Api for the Firebase project</param>
+        /// <returns>the only Firebase instance on the app</returns>
         public static Firebase InitializeFirebase(string projectName, string authCredential)
         {
             if (firebase == null)
@@ -31,6 +40,9 @@ namespace Firebase
             return firebase;
         }
 
+        /// <summary>
+        /// Private constructor so you won't be able to create new instance from outside the class
+        /// </summary>
         private Firebase() { }
 
         /// <summary>
@@ -52,14 +64,27 @@ namespace Firebase
         }
     }
 
+    /// <summary>
+    /// This class is for the Firebase Database
+    /// </summary>
     public sealed class FirebaseDatabase
     {
+        /// <summary>
+        /// This function returns the reference to the Firebase Database at the <code>child</code> child
+        /// </summary>
+        /// <exception cref="ArgumentNullException">thrown if <code>child</code> is null or empty</exception>
+        /// <param name="child">the child</param>
+        /// <returns>the reference to the Firebase Database at the <code>child</code> child</returns>
         public DatabaseReference GetReference(string child)
         {
-            if (child == null) throw new ArgumentNullException("Child cannot be null");
+            if (string.IsNullOrEmpty(child)) throw new ArgumentNullException("Child cannot be null or empty");
             return new DatabaseReference($"{child}");
         }
 
+        /// <summary>
+        /// This function returns the reference to the root of the Firebase Database
+        /// </summary>
+        /// <returns>the reference to the root of the Firebase Database</returns>
         public DatabaseReference GetReference()
         {
             return new DatabaseReference();
@@ -109,7 +134,7 @@ namespace Firebase
             return response.StatusCode switch
             {
                 HttpStatusCode.OK => await response.Content.ReadAsStringAsync(),
-                HttpStatusCode.Unauthorized => throw new DatabaseAuthException("You are not authorized to the database"),
+                HttpStatusCode.Unauthorized => throw new DatabaseException("You are not authorized to the database"),
                 _ => null
             };
         }
@@ -127,7 +152,7 @@ namespace Firebase
             return response.StatusCode switch
             {
                 HttpStatusCode.OK => true,
-                HttpStatusCode.Unauthorized => throw new DatabaseAuthException("You are not authorized to the database"),
+                HttpStatusCode.Unauthorized => throw new DatabaseException("You are not authorized to the database"),
                 _ => false
             };
         }
@@ -144,7 +169,7 @@ namespace Firebase
             return response.StatusCode switch
             {
                 HttpStatusCode.OK => true,
-                HttpStatusCode.Unauthorized => throw new DatabaseAuthException("You are not authorized to the database"),
+                HttpStatusCode.Unauthorized => throw new DatabaseException("You are not authorized to the database"),
                 _ => false
             };
         }
@@ -168,21 +193,24 @@ namespace Firebase
             return new DatabaseReference();
         }
 
+        /// <summary>
+        /// This function returns the reference to the parent of the current reference
+        /// </summary>
+        /// <returns>the reference to the parent of the current reference</returns>
         public DatabaseReference GetParent()
         {
-            string[] childs = child.Split("/");
-            return new DatabaseReference(string.Join("", childs.Take(childs.Length - 1)));
+            return new DatabaseReference(child.Substring(0, child.Length - child.LastIndexOf('/')));
         }
     }
 
     /// <summary>
-    /// Class for the Firebase authentication
+    /// This class is for the Firebase authentication
     /// </summary>
     public sealed class FirebaseAuth
     {
         private static readonly string signInURL = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword";
         private static readonly string signUpURL = "https://identitytoolkit.googleapis.com/v1/accounts:signUp";
-        private static readonly string updateURL = "https://identitytoolkit.googleapis.com/v1/accounts:update";
+        private static readonly string passwordResetURL = "https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode";
 
         private static readonly HttpClient signInClient = new HttpClient
         {
@@ -192,9 +220,9 @@ namespace Firebase
         {
             BaseAddress = new Uri(signUpURL)
         };
-        private static HttpClient updateClient = new HttpClient
+        private static readonly HttpClient passwordResetClient = new HttpClient
         {
-            BaseAddress = new Uri(updateURL)
+            BaseAddress = new Uri(passwordResetURL)
         };
 
         internal static string IdToken
@@ -213,7 +241,7 @@ namespace Firebase
         {
             signInClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             signUpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            updateClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            passwordResetClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
             this.apiKey = apiKey;
         }
@@ -223,13 +251,14 @@ namespace Firebase
             HttpResponseMessage response = await signInClient.PostAsync($"?key={apiKey}", new StringContent(new UserAuth(email, password).ToString()));
 
             if (response.IsSuccessStatusCode)
-            {
-                IdToken = JsonConvert.DeserializeObject<FirebaseUser>(await response.Content.ReadAsStringAsync()).idToken;
+            {    
+                FirebaseUser user = JsonConvert.DeserializeObject<FirebaseUser>(await response.Content.ReadAsStringAsync());
+                IdToken = user.idToken;
                 IsLoggedIn = true;
                 return true;
             }
             IsLoggedIn = false;
-            return false;
+            throw new AuthenticationException("Couldn't sign in to firebase");
         }
 
         public async Task<bool> SignUp(string email, string password)
@@ -239,31 +268,59 @@ namespace Firebase
             return response.IsSuccessStatusCode;
         }
 
-        //public async Task<bool> UpdateName(string name)
-        //{
-        //    HttpResponseMessage response = await UpdateClient.PostAsync($"accounts:update?key={apiKey}", new StringContent(new UserAuth(email, password).ToString()));
-
-        //    return response.IsSuccessStatusCode;
-        //}
-
-        public FirebaseUser GetCurrentUser()
+        public async Task<bool> SendPasswordResetEmail(string email)
         {
-            return null;
+            HttpResponseMessage response = await passwordResetClient.PostAsync($"?key={apiKey}", new StringContent("{" + $"\"requestType\":\"PASSWORD_RESET\",\"email\":\"{email}\"" + "}"));
+
+            return response.IsSuccessStatusCode;
         }
     }
 
-    public class DatabaseException : Exception
+    /// <summary>
+    /// This class is the main Firebase exceptions class, which all the firebase exceptions derive from
+    /// </summary>
+    public class FirebaseException : Exception
     {
+        internal FirebaseException() : base()
+        {
+        }
+
+        internal FirebaseException(string message) : base(message)
+        {
+        }
+    }
+
+    /// <summary>
+    /// This class is for any firebase authentication related exception 
+    /// </summary>
+    public class AuthenticationException : FirebaseException
+    {
+        public AuthenticationException() : base()
+        {
+        }
+
+        public AuthenticationException(string message) : base(message)
+        {
+        }
+    }
+
+    /// <summary>
+    /// This class is for any firebase database related exception
+    /// </summary>
+    public class DatabaseException : FirebaseException
+    {
+        public DatabaseException() : base()
+        {
+        }
+
         public DatabaseException(string message) : base(message)
         {
         }
     }
 
-    public class DatabaseAuthException : DatabaseException
-    {
-        public DatabaseAuthException(string message) : base(message) {}
-    }
-
+    /// <summary>
+    /// This class if for authenticating a firebase user (token)
+    /// </summary>
     internal class UserAuth
     {
         public string email;
@@ -281,13 +338,9 @@ namespace Firebase
         }
     }
 
-    internal class UpdateUserAuth
-    {
-        public string idToken;
-        public string displayName;
-
-    }
-
+    /// <summary>
+    /// This class is for a firebase user details
+    /// </summary>
     public class FirebaseUser
     {
         internal string kind;
@@ -298,19 +351,5 @@ namespace Firebase
         internal string registered;
         internal string refreshToken;
         internal string expiresIn;
-    }
-
-    internal class FirebaseError
-    {
-        public class Error
-        {
-            public string domain;
-            public string reason;
-            public string message;
-        }
-
-        public List<string> errors;
-        public int code;
-        public string message;
     }
 }
