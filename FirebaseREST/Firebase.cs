@@ -223,6 +223,7 @@ namespace Firebase
             get;
         }
         private string apiKey;
+        private FirebaseUser firebaseUser;
         public static bool IsLoggedIn
         {
             private set;
@@ -247,8 +248,8 @@ namespace Firebase
             HttpResponseMessage response = await signInClient.PostAsync($"?key={apiKey}", new StringContent(new UserAuth(email, password).ToString()));
 
             if (response.IsSuccessStatusCode) {
-                FirebaseUser user = JsonConvert.DeserializeObject<FirebaseUser>(await response.Content.ReadAsStringAsync());
-                IdToken = user.idToken;
+                firebaseUser = JsonConvert.DeserializeObject<FirebaseUser>(await response.Content.ReadAsStringAsync());
+                IdToken = firebaseUser.idToken;
                 IsLoggedIn = true;
                 return true;
             }
@@ -278,6 +279,12 @@ namespace Firebase
 
             return response.IsSuccessStatusCode;
         }
+
+        /// <summary>
+        /// This function returns the current user
+        /// </summary>
+        /// <returns>the current user</returns>
+        public FirebaseUser GetCurrentUser() => firebaseUser;
     }
 
     /// <summary>
@@ -343,7 +350,7 @@ namespace Firebase
         public string localId;
         public string email;
         public string displayName;
-        public string idToken;
+        internal string idToken;
         internal string registered;
         internal string refreshToken;
         internal string expiresIn;
