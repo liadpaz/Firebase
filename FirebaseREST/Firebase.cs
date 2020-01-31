@@ -28,15 +28,21 @@ namespace Firebase
         /// <param name="projectName">the Firebase project name</param>
         /// <param name="authCredential">the Web Api for the Firebase project</param>
         /// <returns>the only Firebase instance on the app</returns>
-        public static Firebase InitializeFirebase(string projectName, string authCredential)
-        {
-            if (firebase == null)
-            {
+        public static Firebase InitializeFirebase(string projectName, string authCredential) {
+            if (firebase == null) {
                 Firebase.projectName = projectName;
                 auth = new FirebaseAuth(authCredential);
                 database = new FirebaseDatabase();
                 return firebase = new Firebase();
             }
+            return firebase;
+        }
+
+        /// <summary>
+        /// This function returns the only Firebase instance on the app
+        /// </summary>
+        /// <returns>the only Firebase instance on the app</returns>
+        public static Firebase GetInstance() {
             return firebase;
         }
 
@@ -49,8 +55,7 @@ namespace Firebase
         /// This function returns the only instance of the FirebaseDatabase
         /// </summary>
         /// <returns>the only instance of the FirebaseDatabase</returns>
-        public FirebaseDatabase GetFirebaseDatabase()
-        {
+        public FirebaseDatabase GetFirebaseDatabase() {
             return database;
         }
 
@@ -58,8 +63,7 @@ namespace Firebase
         /// This function returns the only instance of the FirebaseAuth
         /// </summary>
         /// <returns>the only instance of the FirebaseAuth</returns>
-        public FirebaseAuth GetFirebaseAuth()
-        {
+        public FirebaseAuth GetFirebaseAuth() {
             return auth;
         }
     }
@@ -75,8 +79,7 @@ namespace Firebase
         /// <exception cref="ArgumentNullException">thrown if <code>child</code> is null or empty</exception>
         /// <param name="child">the child</param>
         /// <returns>the reference to the Firebase Database at the <code>child</code> child</returns>
-        public DatabaseReference GetReference(string child)
-        {
+        public DatabaseReference GetReference(string child) {
             if (string.IsNullOrEmpty(child)) throw new ArgumentNullException("Child cannot be null or empty");
             return new DatabaseReference($"{child}");
         }
@@ -85,8 +88,7 @@ namespace Firebase
         /// This function returns the reference to the root of the Firebase Database
         /// </summary>
         /// <returns>the reference to the root of the Firebase Database</returns>
-        public DatabaseReference GetReference()
-        {
+        public DatabaseReference GetReference() {
             return new DatabaseReference();
         }
     }
@@ -94,18 +96,16 @@ namespace Firebase
     public sealed class DatabaseReference
     {
         private static readonly HttpClient client = new HttpClient();
-        
+
         private readonly string child;
 
         /// <summary>
         /// Internal constructor that can only be called from within this library, sets the child of the database reference
         /// </summary>
         /// <param name="child">the databaseURL</param>
-        internal DatabaseReference(string child)
-        {
+        internal DatabaseReference(string child) {
             this.child = child;
-            if (client.BaseAddress == null)
-            {
+            if (client.BaseAddress == null) {
                 client.BaseAddress = new Uri($"https://{Firebase.projectName}.firebaseio.com/");
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             }
@@ -114,11 +114,9 @@ namespace Firebase
         /// <summary>
         /// Internal constructor that can only be called from within this library
         /// </summary>
-        internal DatabaseReference()
-        {
+        internal DatabaseReference() {
             child = string.Empty;
-            if (client.BaseAddress == null)
-            {
+            if (client.BaseAddress == null) {
                 client.BaseAddress = new Uri($"https://{Firebase.projectName}.firebaseio.com/");
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             }
@@ -128,8 +126,7 @@ namespace Firebase
         /// This function returns the data from the database reference
         /// </summary>
         /// <returns>the data in the database</returns
-        public async Task<string> Read()
-        {
+        public async Task<string> Read() {
             HttpResponseMessage response = await client.GetAsync($"{child}.json?print=pretty&auth={FirebaseAuth.IdToken}");
             return response.StatusCode switch
             {
@@ -145,8 +142,7 @@ namespace Firebase
         /// <exception cref="DatabaseAuthException">thrown when the user is not permitted</exception>
         /// <param name="data">the data to write</param>
         /// <returns>true if succeeded otherwise false</returns>
-        public async Task<bool> Write(string data)
-        {
+        public async Task<bool> Write(string data) {
             HttpResponseMessage response = await client.PutAsync($"{child}.json?auth={FirebaseAuth.IdToken}", new StringContent(data));
 
             return response.StatusCode switch
@@ -162,8 +158,7 @@ namespace Firebase
         /// </summary>
         /// <exception cref="DatabaseAuthException">throw when the user is not permitted</exception>
         /// <returns>true if succeeded otherwise false</returns>
-        public async Task<bool> Delete()
-        {
+        public async Task<bool> Delete() {
             HttpResponseMessage response = await client.DeleteAsync($"{child}.json?auth={FirebaseAuth.IdToken}");
 
             return response.StatusCode switch
@@ -179,8 +174,7 @@ namespace Firebase
         /// </summary>
         /// <param name="child">the child</param>
         /// <returns>database reference to <c>child</c> of the current reference</returns>
-        public DatabaseReference Child(string child)
-        {
+        public DatabaseReference Child(string child) {
             return new DatabaseReference($"{this.child}/{child}");
         }
 
@@ -188,8 +182,7 @@ namespace Firebase
         /// This function returns the reference to the root of the database
         /// </summary>
         /// <returns>the reference to the root of the database</returns>
-        public DatabaseReference Root()
-        {
+        public DatabaseReference Root() {
             return new DatabaseReference();
         }
 
@@ -197,8 +190,7 @@ namespace Firebase
         /// This function returns the reference to the parent of the current reference
         /// </summary>
         /// <returns>the reference to the parent of the current reference</returns>
-        public DatabaseReference GetParent()
-        {
+        public DatabaseReference GetParent() {
             return new DatabaseReference(child.Substring(0, child.Length - child.LastIndexOf('/')));
         }
     }
@@ -237,8 +229,7 @@ namespace Firebase
             get;
         } = false;
 
-        internal FirebaseAuth(string apiKey)
-        {
+        internal FirebaseAuth(string apiKey) {
             signInClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             signUpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             passwordResetClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -246,30 +237,43 @@ namespace Firebase
             this.apiKey = apiKey;
         }
 
-        public async Task<bool> SignIn(string email, string password)
-        {
+        /// <summary>
+        /// This function is used to sign in user to Firebase
+        /// </summary>
+        /// <param name="email">the user's email</param>
+        /// <param name="password">the user's password</param>
+        /// <returns>true if successfully signed in, otherwise false</returns>
+        public async Task<bool> SignIn(string email, string password) {
             HttpResponseMessage response = await signInClient.PostAsync($"?key={apiKey}", new StringContent(new UserAuth(email, password).ToString()));
 
-            if (response.IsSuccessStatusCode)
-            {    
+            if (response.IsSuccessStatusCode) {
                 FirebaseUser user = JsonConvert.DeserializeObject<FirebaseUser>(await response.Content.ReadAsStringAsync());
                 IdToken = user.idToken;
                 IsLoggedIn = true;
                 return true;
             }
             IsLoggedIn = false;
-            throw new AuthenticationException("Couldn't sign in to firebase");
+            return false;
         }
 
-        public async Task<bool> SignUp(string email, string password)
-        {
+        /// <summary>
+        /// This function is used to sign up user to Firebase
+        /// </summary>
+        /// <param name="email">the user's email</param>
+        /// <param name="password">the user's password</param>
+        /// <returns>true if successfully signed up the user, otherwise false</returns>
+        public async Task<bool> SignUp(string email, string password) {
             HttpResponseMessage response = await signUpClient.PostAsync($"?key={apiKey}", new StringContent(new UserAuth(email, password).ToString()));
 
             return response.IsSuccessStatusCode;
         }
 
-        public async Task<bool> SendPasswordResetEmail(string email)
-        {
+        /// <summary>
+        /// This function send password reset email to a Firebase user
+        /// </summary>
+        /// <param name="email">the user's email</param>
+        /// <returns></returns>
+        public async Task<bool> SendPasswordResetEmail(string email) {
             HttpResponseMessage response = await passwordResetClient.PostAsync($"?key={apiKey}", new StringContent("{" + $"\"requestType\":\"PASSWORD_RESET\",\"email\":\"{email}\"" + "}"));
 
             return response.IsSuccessStatusCode;
@@ -281,12 +285,10 @@ namespace Firebase
     /// </summary>
     public class FirebaseException : Exception
     {
-        internal FirebaseException() : base()
-        {
+        internal FirebaseException() : base() {
         }
 
-        internal FirebaseException(string message) : base(message)
-        {
+        internal FirebaseException(string message) : base(message) {
         }
     }
 
@@ -295,12 +297,10 @@ namespace Firebase
     /// </summary>
     public class AuthenticationException : FirebaseException
     {
-        public AuthenticationException() : base()
-        {
+        public AuthenticationException() : base() {
         }
 
-        public AuthenticationException(string message) : base(message)
-        {
+        public AuthenticationException(string message) : base(message) {
         }
     }
 
@@ -309,12 +309,10 @@ namespace Firebase
     /// </summary>
     public class DatabaseException : FirebaseException
     {
-        public DatabaseException() : base()
-        {
+        public DatabaseException() : base() {
         }
 
-        public DatabaseException(string message) : base(message)
-        {
+        public DatabaseException(string message) : base(message) {
         }
     }
 
@@ -326,14 +324,12 @@ namespace Firebase
         public string email;
         public string password;
 
-        public UserAuth(string email, string password)
-        {
+        public UserAuth(string email, string password) {
             this.email = email;
             this.password = password;
         }
 
-        public override string ToString()
-        {
+        public override string ToString() {
             return "{" + $"\"email\":\"{email}\",\"password\":\"{password}\",\"returnSecureToken\":\"true\"" + "}";
         }
     }
