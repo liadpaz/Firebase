@@ -80,7 +80,8 @@ namespace Firebase
         /// <param name="child">the child</param>
         /// <returns>the reference to the Firebase Database at the <code>child</code> child</returns>
         public DatabaseReference GetReference(string child) {
-            if (string.IsNullOrEmpty(child)) throw new ArgumentNullException("Child cannot be null or empty");
+            if (string.IsNullOrEmpty(child))
+                throw new ArgumentNullException("Child cannot be null or empty");
             return new DatabaseReference($"{child}");
         }
 
@@ -128,10 +129,10 @@ namespace Firebase
         /// <returns>the data in the database</returns
         public async Task<string> Read() {
             HttpResponseMessage response = await client.GetAsync($"{child}.json?print=pretty&auth={FirebaseAuth.IdToken}");
+
             return response.StatusCode switch
             {
                 HttpStatusCode.OK => await response.Content.ReadAsStringAsync(),
-                HttpStatusCode.Unauthorized => throw new DatabaseException("You are not authorized to the database"),
                 _ => null
             };
         }
@@ -148,7 +149,6 @@ namespace Firebase
             return response.StatusCode switch
             {
                 HttpStatusCode.OK => true,
-                HttpStatusCode.Unauthorized => throw new DatabaseException("You are not authorized to the database"),
                 _ => false
             };
         }
@@ -164,7 +164,6 @@ namespace Firebase
             return response.StatusCode switch
             {
                 HttpStatusCode.OK => true,
-                HttpStatusCode.Unauthorized => throw new DatabaseException("You are not authorized to the database"),
                 _ => false
             };
         }
@@ -193,6 +192,12 @@ namespace Firebase
         public DatabaseReference GetParent() {
             return new DatabaseReference(child.Substring(0, child.Length - child.LastIndexOf('/')));
         }
+
+        /// <summary>
+        /// This fuction returns the database reference as string, it shows the path of the reference
+        /// </summary>
+        /// <returns>the database reference as string</returns>
+        public override string ToString() => $"{client.BaseAddress}{child}";
     }
 
     /// <summary>
@@ -288,42 +293,6 @@ namespace Firebase
     }
 
     /// <summary>
-    /// This class is the main Firebase exceptions class, which all the firebase exceptions derive from
-    /// </summary>
-    public class FirebaseException : Exception
-    {
-        internal FirebaseException() : base() {
-        }
-
-        internal FirebaseException(string message) : base(message) {
-        }
-    }
-
-    /// <summary>
-    /// This class is for any firebase authentication related exception 
-    /// </summary>
-    public class AuthenticationException : FirebaseException
-    {
-        public AuthenticationException() : base() {
-        }
-
-        public AuthenticationException(string message) : base(message) {
-        }
-    }
-
-    /// <summary>
-    /// This class is for any firebase database related exception
-    /// </summary>
-    public class DatabaseException : FirebaseException
-    {
-        public DatabaseException() : base() {
-        }
-
-        public DatabaseException(string message) : base(message) {
-        }
-    }
-
-    /// <summary>
     /// This class if for authenticating a firebase user (token)
     /// </summary>
     internal class UserAuth
@@ -346,13 +315,13 @@ namespace Firebase
     /// </summary>
     public class FirebaseUser
     {
-        internal string kind;
+        public string kind;
         public string localId;
         public string email;
         public string displayName;
-        internal string idToken;
-        internal string registered;
-        internal string refreshToken;
-        internal string expiresIn;
+        public string idToken;
+        public string registered;
+        public string refreshToken;
+        public string expiresIn;
     }
 }
