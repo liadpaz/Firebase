@@ -1,8 +1,6 @@
 ﻿#pragma warning disable 649
 
 using System;
-using System.Linq;
-using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -268,10 +266,13 @@ namespace Firebase
         /// <param name="email">the user's email</param>
         /// <param name="password">the user's password</param>
         /// <returns>true if successfully signed up the user, otherwise false</returns>
-        public async Task<bool> SignUp(string email, string password) {
+        public async Task<FirebaseUser> SignUp(string email, string password) {
             HttpResponseMessage response = await signUpClient.PostAsync($"?key={apiKey}", new StringContent(new UserAuth(email, password).ToString()));
 
-            return response.IsSuccessStatusCode;
+            if (response.IsSuccessStatusCode) {
+                return JsonConvert.DeserializeObject<FirebaseUser>(await response.Content.ReadAsStringAsync()); 
+            }
+            throw new AuthException("Email already exists");
         }
 
         /// <summary>
@@ -290,6 +291,12 @@ namespace Firebase
         /// </summary>
         /// <returns>the current user</returns>
         public FirebaseUser GetCurrentUser() => firebaseUser;
+    }
+
+    public class AuthException : Exception
+    {
+        public AuthException(string message) : base(message) {
+        }
     }
 
     /// <summary>
