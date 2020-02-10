@@ -40,9 +40,7 @@ namespace Firebase
         /// This function returns the only Firebase instance on the app
         /// </summary>
         /// <returns>the only Firebase instance on the app</returns>
-        public static Firebase GetInstance() {
-            return firebase;
-        }
+        public static Firebase GetInstance() => firebase;
 
         /// <summary>
         /// Private constructor so you won't be able to create new instance from outside the class
@@ -53,17 +51,13 @@ namespace Firebase
         /// This function returns the only instance of the FirebaseDatabase
         /// </summary>
         /// <returns>the only instance of the FirebaseDatabase</returns>
-        public FirebaseDatabase GetFirebaseDatabase() {
-            return database;
-        }
+        public FirebaseDatabase FirebaseDatabase => database;
 
         /// <summary>
         /// This function returns the only instance of the FirebaseAuth
         /// </summary>
         /// <returns>the only instance of the FirebaseAuth</returns>
-        public FirebaseAuth GetFirebaseAuth() {
-            return auth;
-        }
+        public FirebaseAuth FirebaseAuth => auth;
     }
 
     /// <summary>
@@ -78,8 +72,10 @@ namespace Firebase
         /// <param name="child">the child</param>
         /// <returns>the reference to the Firebase Database at the <code>child</code> child</returns>
         public DatabaseReference GetReference(string child) {
-            if (string.IsNullOrEmpty(child))
-                throw new ArgumentNullException("Child cannot be null or empty");
+            if (string.IsNullOrEmpty(child)) {
+                throw new ArgumentNullException("Child cannot be null or empty", nameof(child));
+            }
+
             return new DatabaseReference($"{child}");
         }
 
@@ -87,9 +83,7 @@ namespace Firebase
         /// This function returns the reference to the root of the Firebase Database
         /// </summary>
         /// <returns>the reference to the root of the Firebase Database</returns>
-        public DatabaseReference GetReference() {
-            return new DatabaseReference();
-        }
+        public DatabaseReference GetReference() => new DatabaseReference();
     }
 
     public sealed class DatabaseReference
@@ -171,25 +165,19 @@ namespace Firebase
         /// </summary>
         /// <param name="child">the child</param>
         /// <returns>database reference to <c>child</c> of the current reference</returns>
-        public DatabaseReference Child(string child) {
-            return new DatabaseReference($"{this.child}/{child}");
-        }
+        public DatabaseReference Child(string child) => new DatabaseReference($"{this.child}/{child}");
 
         /// <summary>
         /// This function returns the reference to the root of the database
         /// </summary>
         /// <returns>the reference to the root of the database</returns>
-        public DatabaseReference Root() {
-            return new DatabaseReference();
-        }
+        public DatabaseReference Root => new DatabaseReference();
 
         /// <summary>
         /// This function returns the reference to the parent of the current reference
         /// </summary>
         /// <returns>the reference to the parent of the current reference</returns>
-        public DatabaseReference GetParent() {
-            return new DatabaseReference(child.Substring(0, child.Length - child.LastIndexOf('/')));
-        }
+        public DatabaseReference GetParent() => new DatabaseReference(child.Substring(0, child.Length - child.LastIndexOf('/')));
 
         /// <summary>
         /// This fuction returns the database reference as string, it shows the path of the reference
@@ -295,8 +283,7 @@ namespace Firebase
 
     public class AuthException : Exception
     {
-        public AuthException(string message) : base(message) {
-        }
+        public AuthException(string message) : base(message) {}
     }
 
     /// <summary>
@@ -312,9 +299,7 @@ namespace Firebase
             this.password = password;
         }
 
-        public override string ToString() {
-            return "{" + $"\"email\":\"{email}\",\"password\":\"{password}\",\"returnSecureToken\":\"true\"" + "}";
-        }
+        public override string ToString() => "{" + $"\"email\":\"{email}\",\"password\":\"{password}\",\"returnSecureToken\":\"true\"" + "}";
     }
 
     /// <summary>
