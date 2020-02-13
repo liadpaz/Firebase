@@ -7,13 +7,11 @@ using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 
-namespace Firebase
-{
+namespace Firebase {
     /// <summary>
     /// This class is for the general Firebase
     /// </summary>
-    public sealed class Firebase
-    {
+    public sealed class Firebase {
         private static Firebase firebase = null;
         private static FirebaseAuth auth = null;
         private static FirebaseDatabase database = null;
@@ -63,8 +61,7 @@ namespace Firebase
     /// <summary>
     /// This class is for the Firebase Database
     /// </summary>
-    public sealed class FirebaseDatabase
-    {
+    public sealed class FirebaseDatabase {
         /// <summary>
         /// This function returns the reference to the Firebase Database at the <code>child</code> child
         /// </summary>
@@ -86,8 +83,7 @@ namespace Firebase
         public DatabaseReference GetReference() => new DatabaseReference();
     }
 
-    public sealed class DatabaseReference
-    {
+    public sealed class DatabaseReference {
         private static readonly HttpClient client = new HttpClient();
 
         private readonly string child;
@@ -189,34 +185,28 @@ namespace Firebase
     /// <summary>
     /// This class is for the Firebase authentication
     /// </summary>
-    public sealed class FirebaseAuth
-    {
+    public sealed class FirebaseAuth {
         private static readonly string signInURL = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword";
         private static readonly string signUpURL = "https://identitytoolkit.googleapis.com/v1/accounts:signUp";
         private static readonly string passwordResetURL = "https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode";
 
-        private static readonly HttpClient signInClient = new HttpClient
-        {
+        private static readonly HttpClient signInClient = new HttpClient {
             BaseAddress = new Uri(signInURL)
         };
-        private static readonly HttpClient signUpClient = new HttpClient
-        {
+        private static readonly HttpClient signUpClient = new HttpClient {
             BaseAddress = new Uri(signUpURL)
         };
-        private static readonly HttpClient passwordResetClient = new HttpClient
-        {
+        private static readonly HttpClient passwordResetClient = new HttpClient {
             BaseAddress = new Uri(passwordResetURL)
         };
 
-        internal static string IdToken
-        {
+        internal static string IdToken {
             private set;
             get;
         }
-        private string apiKey;
+        private readonly string apiKey;
         private FirebaseUser firebaseUser;
-        public static bool IsLoggedIn
-        {
+        public static bool IsLoggedIn {
             private set;
             get;
         } = false;
@@ -258,7 +248,7 @@ namespace Firebase
             HttpResponseMessage response = await signUpClient.PostAsync($"?key={apiKey}", new StringContent(new UserAuth(email, password).ToString()));
 
             if (response.IsSuccessStatusCode) {
-                return JsonConvert.DeserializeObject<FirebaseUser>(await response.Content.ReadAsStringAsync()); 
+                return JsonConvert.DeserializeObject<FirebaseUser>(await response.Content.ReadAsStringAsync());
             }
             throw new AuthException("Email already exists");
         }
@@ -281,16 +271,14 @@ namespace Firebase
         public FirebaseUser GetCurrentUser() => firebaseUser;
     }
 
-    public class AuthException : Exception
-    {
-        public AuthException(string message) : base(message) {}
+    public class AuthException : Exception {
+        public AuthException(string message) : base(message) { }
     }
 
     /// <summary>
     /// This class if for authenticating a firebase user (token)
     /// </summary>
-    internal class UserAuth
-    {
+    internal class UserAuth {
         public string email;
         public string password;
 
@@ -305,8 +293,7 @@ namespace Firebase
     /// <summary>
     /// This class is for a firebase user details
     /// </summary>
-    public class FirebaseUser
-    {
+    public class FirebaseUser {
         public string kind;
         public string localId;
         public string email;
