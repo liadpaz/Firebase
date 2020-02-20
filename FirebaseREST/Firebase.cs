@@ -1,6 +1,4 @@
-﻿#pragma warning disable 649
-
-using System;
+﻿using System;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
@@ -8,6 +6,11 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 
 namespace Firebase {
+
+    #region Firebase
+
+    #region General Firebase
+
     /// <summary>
     /// This class is for the general Firebase
     /// </summary>
@@ -55,6 +58,10 @@ namespace Firebase {
         /// </summary>
         public FirebaseAuth FirebaseAuth => auth;
     }
+
+    #endregion General Firebase
+
+    #region Real-Time Database
 
     /// <summary>
     /// This class is for the Firebase Real-Time Database
@@ -183,6 +190,10 @@ namespace Firebase {
         public override string ToString() => $"{client.BaseAddress}{child}";
     }
 
+    #endregion Real-Time Database
+
+    #region Authentication
+
     /// <summary>
     /// This class is for the Firebase authentication
     /// </summary>
@@ -276,6 +287,10 @@ namespace Firebase {
         public AuthException(string message) : base(message) { }
     }
 
+    #endregion Authentication
+
+    #region Utilities
+
     /// <summary>
     /// This class if for authenticating a firebase user (token)
     /// </summary>
@@ -304,4 +319,8 @@ namespace Firebase {
         public string refreshToken;
         public string expiresIn;
     }
+
+    #endregion Utilities
+
+    #endregion Firebase
 }
