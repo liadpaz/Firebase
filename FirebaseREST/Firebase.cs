@@ -46,20 +46,18 @@ namespace Firebase {
         private Firebase() { }
 
         /// <summary>
-        /// This function returns the only instance of the FirebaseDatabase
+        /// This function returns the only instance of the Firebase Real-Time Database
         /// </summary>
-        /// <returns>the only instance of the FirebaseDatabase</returns>
         public FirebaseDatabase FirebaseDatabase => database;
 
         /// <summary>
-        /// This function returns the only instance of the FirebaseAuth
+        /// This function returns the only instance of the Firebase Authentication
         /// </summary>
-        /// <returns>the only instance of the FirebaseAuth</returns>
         public FirebaseAuth FirebaseAuth => auth;
     }
 
     /// <summary>
-    /// This class is for the Firebase Database
+    /// This class is for the Firebase Real-Time Database
     /// </summary>
     public sealed class FirebaseDatabase {
         /// <summary>
@@ -83,6 +81,9 @@ namespace Firebase {
         public DatabaseReference GetReference() => new DatabaseReference();
     }
 
+    /// <summary>
+    /// This class is for the Firebase Real-Time Database reference
+    /// </summary>
     public sealed class DatabaseReference {
         private static readonly HttpClient client = new HttpClient();
 
