@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 
 namespace Firebase {
-
     #region Firebase
 
     #region General Firebase
