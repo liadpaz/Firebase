@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.29613.14
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Firebase", "FirebaseREST\Firebase.csproj", "{ADDC68F3-F1EC-4B0A-A6DE-B6CA85B37C66}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Firebase", "Firebase\Firebase.csproj", "{ADDC68F3-F1EC-4B0A-A6DE-B6CA85B37C66}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
