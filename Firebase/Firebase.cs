@@ -1,19 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 using Newtonsoft.Json;
 using Newtonsoft.Json.Serialization;
-using static Firebase.Firestore.DocumentReference;
+
+using static Firebase.Firestore.Document;
 
 namespace Firebase {
 #pragma warning disable IDE0044, IDE0051 , IDE0052, 169, 414, 649
@@ -221,7 +219,6 @@ namespace Firebase {
 
     public sealed class Firestore {
 
-        internal readonly static Regex normalRegex = new Regex("^[^/]+[/][^/]+(([^/]+[/][^/]+){2})*$");
         internal readonly static Regex documentRegex = new Regex("^[^/]*((([/][^/]*){1})(([/][^/]*){2})*){1}[^/]$");
         internal readonly static Regex collectionRegex = new Regex("^[^/]+(([/][^/]+){2})*$");
 
@@ -273,6 +270,16 @@ namespace Firebase {
         /// <returns>the trimmed path</returns>
         private static string TrimPath(string path) => string.IsNullOrEmpty(path) ? null : $"/{path}";
 
+        /// <summary>
+        /// This function trims the last path piece
+        /// </summary>
+        /// <param name="path">the path to trim</param>
+        /// <returns>the path w/o it's last piece</returns>
+        private static string TrimLastPathPiece(string path) => path.Substring(0, path.LastIndexOf("/"));
+
+        /// <summary>
+        /// This class is for Firestore collection reference
+        /// </summary>
         public sealed class CollectionReference {
 
             public string Path { get; }
@@ -280,6 +287,8 @@ namespace Firebase {
             internal CollectionReference(string path = null) => Path = path;
 
             private CollectionReference() { }
+
+            public string GetId() => Path.Substring(Path.LastIndexOf("/") + 1);
 
             /// <summary>
             /// This function creates a document in the Firestore database
@@ -311,12 +320,7 @@ namespace Firebase {
             /// This function returns the <code>DocumentReference</code> parent of the current document reference
             /// </summary>
             /// <returns>the <code>DocumentReference</code> parent of the current document reference</returns>
-            public DocumentReference GetParent() {
-
-                // TODO: implement path cutter
-
-                return null;
-            }
+            public DocumentReference GetParent() => new DocumentReference(TrimLastPathPiece(Path));
 
             /// <summary>
             /// This function gets the list of the documents in the current path
@@ -334,6 +338,9 @@ namespace Firebase {
             }
         }
 
+        /// <summary>
+        /// This class is for Firestore document reference
+        /// </summary>
         public sealed class DocumentReference {
 
             public string Path { get; }
@@ -341,6 +348,8 @@ namespace Firebase {
             internal DocumentReference(string path = null) => Path = path;
 
             private DocumentReference() { }
+
+            public string GetId() => Path.Substring(Path.LastIndexOf("/") + 1);
 
             /// <summary>
             /// This function returns the reference to the sub collection in the path specified
@@ -372,7 +381,7 @@ namespace Firebase {
             /// <returns>true if succeeded, otherwise false</returns>
             public async Task<Document> Get() {
                 HttpResponseMessage response = await client.GetAsync($"v1beta1/projects/{Firebase.ProjectId}/databases/(default)/documents{TrimPath(Path)}");
-
+                Console.WriteLine(await response.Content.ReadAsStringAsync());
                 return JsonConvert.DeserializeObject<Document>(await response.Content.ReadAsStringAsync());
             }
 
@@ -380,12 +389,7 @@ namespace Firebase {
             /// This function returns the <code>CollectionReference</code> parent of the current document reference
             /// </summary>
             /// <returns>the <code>CollectionReference</code> parent of the current document reference</returns>
-            public CollectionReference GetParent() {
-
-                // TODO: implement path cutter
-
-                return null;
-            }
+            public CollectionReference GetParent() => new CollectionReference(TrimLastPathPiece(Path));
 
             /// <summary>
             /// This function sets the content of the current document to the specified document, it overrides any content that pre-existed
@@ -419,297 +423,304 @@ namespace Firebase {
                 return JsonConvert.DeserializeObject<CollectionIds>(await response.Content.ReadAsStringAsync());
             }
         }
-    }
-
-    #region Helper Classes 
-
-    public sealed class Document {
-
-        [JsonIgnore]
-        private string path = null;
-
-        [JsonProperty]
-        private string name;
-        [JsonProperty]
-        private Dictionary<string, Value> fields;
-        [JsonProperty]
-        private string createTime;
-        [JsonProperty]
-        private string updateTime;
-
-        [JsonIgnore]
-        public Dictionary<string, Value> Fields => fields;
 
         /// <summary>
-        /// This function creates a new document in the specified path
+        /// This class is for Firestore document
         /// </summary>
-        /// <param name="path">the path of the document</param>
-        /// <returns>a new document in the specified path</returns>
-        internal static Document NewDocument(string path = null) => new Document() {
-            path = path
-        };
-
-        internal Document(Dictionary<string, Value> fields = null) => this.fields = fields ?? new Dictionary<string, Value>();
-
-        /// <summary>
-        /// This function adds a value to the current document
-        /// </summary>
-        /// <param name="key">the name of the value</param>
-        /// <param name="value">the value to add</param>
-        /// <returns>true if succeeded, otherwise false</returns>
-        public bool AddField(string key, Value value) => fields.TryAdd(key, value);
-
-        public override string ToString() => JsonConvert.SerializeObject(this);
-
-        public sealed class Value {
-            public enum Type {
-                Null,
-                Boolean,
-                Integer,
-                Double,
-                Timestamp,
-                String,
-                Bytes,
-                Reference,
-                GeoPoint,
-                Array,
-                Map
-            }
+        public sealed class Document {
 
             [JsonIgnore]
-            private Type type;
-            [JsonProperty("nullValue")]
-            private object NullValue;
-            [JsonProperty("booleanValue")]
-            private bool BooleanValue;
-            [JsonProperty("integerValue")]
-            private string IntegerValue;
-            [JsonProperty("doubleValue")]
-            private double DoubleValue;
-            [JsonProperty("timestampValue")]
-            private string TimestampValue;
-            [JsonProperty("stringValue")]
-            private string StringValue;
-            [JsonProperty("bytesValue")]
-            private string BytesValue;
-            [JsonProperty("referenceValue")]
-            private string ReferenceValue;
-            [JsonProperty("geoPointValue")]
-            private LatLon GeoPointValue;
-            [JsonProperty("arrayValue")]
-            private ArrayValueType ArrayValue;
-            [JsonProperty("mapValue")]
-            private MapValueType MapValue;
+            private string path = null;
 
-            public Value(Type type, object value = null) {
-                this.type = type;
-                switch (type) {
-                    case Type.Null: {
-                        NullValue = null;
-                        break;
-                    }
+            [JsonProperty]
+            private string name;
+            [JsonProperty]
+            private Dictionary<string, Value> fields;
+            [JsonProperty]
+            private string createTime;
+            [JsonProperty]
+            private string updateTime;
 
-                    case Type.Boolean: {
-                        if (value is bool b) {
-                            BooleanValue = b;
-                        } else {
-                            throw new ArgumentException("Entered non-boolean value for a boolean type value", nameof(value));
+            [JsonIgnore]
+            public Dictionary<string, Value> Fields => fields;
+
+            private Document() { }
+
+            internal Document(Dictionary<string, Value> fields = null) => this.fields = fields ?? new Dictionary<string, Value>();
+
+            public override string ToString() => JsonConvert.SerializeObject(this);
+
+            public sealed class Value {
+                public enum Type {
+                    Null,
+                    Boolean,
+                    Integer,
+                    Double,
+                    Timestamp,
+                    String,
+                    Bytes,
+                    Reference,
+                    GeoPoint,
+                    Array,
+                    Map
+                }
+
+                [JsonIgnore]
+                private Type type;
+                [JsonProperty("nullValue")]
+                private object NullValue;
+                [JsonProperty("booleanValue")]
+                private bool? BooleanValue;
+                [JsonProperty("integerValue")]
+                private string IntegerValue;
+                [JsonProperty("doubleValue")]
+                private double? DoubleValue;
+                [JsonProperty("timestampValue")]
+                private string TimestampValue;
+                [JsonProperty("stringValue")]
+                private string StringValue;
+                [JsonProperty("bytesValue")]
+                private string BytesValue;
+                [JsonProperty("referenceValue")]
+                private string ReferenceValue;
+                [JsonProperty("geoPointValue")]
+                private LatLon GeoPointValue;
+                [JsonProperty("arrayValue")]
+                private ArrayValueType ArrayValue;
+                [JsonProperty("mapValue")]
+                private MapValueType MapValue;
+
+                private Value() { }
+
+                public Value(Type type, object value = null) {
+                    this.type = type;
+                    switch (type) {
+                        case Type.Null: {
+                            NullValue = null;
+                            break;
                         }
-                        break;
-                    }
 
-                    case Type.Integer: {
-                        if (int.TryParse(value.ToString(), out int ignoredInt)) {
-                            IntegerValue = value.ToString();
-                        } else {
-                            throw new ArgumentException("Entered non-integer value for a integer type value", nameof(value));
+                        case Type.Boolean: {
+                            if (value is bool b) {
+                                BooleanValue = b;
+                            } else {
+                                throw new ArgumentException("Entered non-boolean value for a boolean type value", nameof(value));
+                            }
+                            break;
                         }
-                        break;
-                    }
 
-                    case Type.Double: {
-                        if (double.TryParse(value.ToString(), out double d)) {
-                            DoubleValue = d;
-                        } else {
-                            throw new ArgumentException("Entered non-double value for a double type value", nameof(value));
+                        case Type.Integer: {
+                            if (int.TryParse(value.ToString(), out int ignoredInt)) {
+                                IntegerValue = value.ToString();
+                            } else {
+                                throw new ArgumentException("Entered non-integer value for a integer type value", nameof(value));
+                            }
+                            break;
                         }
-                        break;
-                    }
 
-                    case Type.Timestamp: {
-                        if (value is DateTime date) {
-                            TimestampValue = TimeZoneInfo.ConvertTimeToUtc(date).ToString();
-                        } else {
-                            throw new ArgumentException("Entered non-timestamp value for a timestamp type value", nameof(value));
+                        case Type.Double: {
+                            if (double.TryParse(value.ToString(), out double d)) {
+                                DoubleValue = d;
+                            } else {
+                                throw new ArgumentException("Entered non-double value for a double type value", nameof(value));
+                            }
+                            break;
                         }
-                        break;
-                    }
 
-                    case Type.String: {
-                        StringValue = value.ToString();
-                        break;
-                    }
-
-                    case Type.Bytes: {
-                        try {
-                            BytesValue = Convert.ToBase64String(Encoding.Unicode.GetBytes(value.ToString()));
-                        } catch {
-                            throw new ArgumentException("Entered non-bytes value for a bytes type value", nameof(value));
+                        case Type.Timestamp: {
+                            if (value is DateTime date) {
+                                TimestampValue = TimeZoneInfo.ConvertTimeToUtc(date).ToString();
+                            } else {
+                                throw new ArgumentException("Entered non-timestamp value for a timestamp type value", nameof(value));
+                            }
+                            break;
                         }
-                        break;
-                    }
 
-                    case Type.Reference: {
-                        ReferenceValue = value.ToString();
-                        break;
-                    }
-
-                    case Type.GeoPoint: {
-                        if (value is LatLon latlon) {
-                            GeoPointValue = latlon;
-                        } else {
-                            throw new ArgumentException("Entered non-geo-point value for a geo-point type value", nameof(value));
+                        case Type.String: {
+                            StringValue = value.ToString();
+                            break;
                         }
-                        break;
-                    }
 
-                    case Type.Array: {
-                        if (value is List<Value> array) {
-                            ArrayValue = new ArrayValueType(array);
-                        } else {
-                            throw new ArgumentException("Entered non-array value for an array type value", nameof(value));
+                        case Type.Bytes: {
+                            try {
+                                BytesValue = Convert.ToBase64String(Encoding.Unicode.GetBytes(value.ToString()));
+                            } catch {
+                                throw new ArgumentException("Entered non-bytes value for a bytes type value", nameof(value));
+                            }
+                            break;
                         }
-                        break;
-                    }
 
-                    case Type.Map: {
-                        if (value is Dictionary<string, Value> map) {
-                            MapValue = new MapValueType(map);
-                        } else {
-                            throw new ArgumentException("Entered non-map value for a map type value", nameof(value));
+                        case Type.Reference: {
+                            ReferenceValue = value.ToString();
+                            break;
                         }
-                        break;
+
+                        case Type.GeoPoint: {
+                            if (value is LatLon latlon) {
+                                GeoPointValue = latlon;
+                            } else {
+                                throw new ArgumentException("Entered non-geo-point value for a geo-point type value", nameof(value));
+                            }
+                            break;
+                        }
+
+                        case Type.Array: {
+                            if (value is List<Value> array) {
+                                ArrayValue = new ArrayValueType(array);
+                            } else {
+                                throw new ArgumentException("Entered non-array value for an array type value", nameof(value));
+                            }
+                            break;
+                        }
+
+                        case Type.Map: {
+                            if (value is Dictionary<string, Value> map) {
+                                MapValue = new MapValueType(map);
+                            } else {
+                                throw new ArgumentException("Entered non-map value for a map type value", nameof(value));
+                            }
+                            break;
+                        }
                     }
                 }
-            }
 
-            public bool ShouldSerializeNullValue() => type == Type.Null;
-            public bool ShouldSerializeBooleanValue() => type == Type.Boolean;
-            public bool ShouldSerializeIntegerValue() => type == Type.Integer;
-            public bool ShouldSerializeDoubleValue() => type == Type.Double;
-            public bool ShouldSerializeTimestampValue() => type == Type.Timestamp;
-            public bool ShouldSerializeStringValue() => type == Type.String;
-            public bool ShouldSerializeBytesValue() => type == Type.Bytes;
-            public bool ShouldSerializeReferenceValue() => type == Type.Reference;
-            public bool ShouldSerializeGeoPointValue() => type == Type.GeoPoint;
-            public bool ShouldSerializeArrayValue() => type == Type.Array;
-            public bool ShouldSerializeMapValue() => type == Type.Map;
+                public bool ShouldSerializeNullValue() => type == Type.Null;
+                public bool ShouldSerializeBooleanValue() => type == Type.Boolean;
+                public bool ShouldSerializeIntegerValue() => type == Type.Integer;
+                public bool ShouldSerializeDoubleValue() => type == Type.Double;
+                public bool ShouldSerializeTimestampValue() => type == Type.Timestamp;
+                public bool ShouldSerializeStringValue() => type == Type.String;
+                public bool ShouldSerializeBytesValue() => type == Type.Bytes;
+                public bool ShouldSerializeReferenceValue() => type == Type.Reference;
+                public bool ShouldSerializeGeoPointValue() => type == Type.GeoPoint;
+                public bool ShouldSerializeArrayValue() => type == Type.Array;
+                public bool ShouldSerializeMapValue() => type == Type.Map;
 
-            public class LatLon {
-                [JsonProperty]
-                private double latitude;
-                [JsonProperty]
-                private double longitude;
+                public bool ShouldDeserializeBooleanValue() => BooleanValue != null;
+                public bool ShouldDeserializeIntegerValue() => IntegerValue != null;
+                public bool ShouldDeserializeDoubleValue() => DoubleValue != null;
+                public bool ShouldDeserializeTimestampValue() => TimestampValue != null;
+                public bool ShouldDeserializeStringValue() => StringValue != null;
+                public bool ShouldDeserializeBytesValue() => BytesValue != null;
+                public bool ShouldDeserializeReferenceValue() => ReferenceValue != null;
+                public bool ShouldDeserializeGeoPointValue() => GeoPointValue != null;
+                public bool ShouldDeserializeArrayValue() => ArrayValue != null;
+                public bool ShouldDeserializeMapValue() => MapValue != null;
 
-                public LatLon(double lat, double lon) => (latitude, longitude) = (lat, lon);
-            }
+                public class LatLon {
+                    [JsonProperty]
+                    private double latitude;
+                    [JsonProperty]
+                    private double longitude;
 
-            public class MapValueType {
-                [JsonProperty]
-                private Dictionary<string, Value> fields;
+                    public LatLon(double lat, double lon) => (latitude, longitude) = (lat, lon);
+                }
 
-                public MapValueType(Dictionary<string, Value> fields = null) => this.fields = fields ?? new Dictionary<string, Value>();
+                public class MapValueType {
+                    [JsonProperty]
+                    private Dictionary<string, Value> fields;
 
-                public override string ToString() => JsonConvert.SerializeObject(this);
-            }
+                    public MapValueType(Dictionary<string, Value> fields = null) => this.fields = fields ?? new Dictionary<string, Value>();
 
-            public class ArrayValueType {
-                [JsonProperty]
-                private List<Value> values;
+                    public override string ToString() => JsonConvert.SerializeObject(this);
+                }
 
-                public ArrayValueType(List<Value> values = null) => this.values = values ?? new List<Value>();
+                public class ArrayValueType {
+                    [JsonProperty]
+                    private List<Value> values;
 
-                public override string ToString() => JsonConvert.SerializeObject(this);
+                    public ArrayValueType(List<Value> values = null) => this.values = values ?? new List<Value>();
+
+                    public override string ToString() => JsonConvert.SerializeObject(this);
+                }
             }
         }
-    }
 
-    public class DocumentBuilder {
-        private Document document;
-    }
+        /// <summary>
+        /// This class is to build a document to upload to Firestore
+        /// </summary>
+        public class DocumentBuilder {
+            private Document document;
 
-    public sealed class Collection {
-        ///// <summary>
-        ///// This function gets a document batch from the current collection
-        ///// </summary>
-        ///// <param name="batchRequest">the batch request</param>
-        ///// <returns>a document batch</returns>
-        //public async Task<string> GetDocumentBatch(BatchRequest batchRequest) {
-        //    HttpResponseMessage response = await client.PostAsync($"v1beta1/projects/{Firebase.ProjectId}/databases/(default)/documents{TrimPath(Path)}:batchGet", new StringContent(batchRequest.ToString()));
+            public DocumentBuilder(Dictionary<string, Value> fields) => document = new Document(fields);
+            public DocumentBuilder() => document = new Document();
 
-        //    return await response.Content.ReadAsStringAsync();
-        //}
-    }
+            /// <summary>
+            /// This function adds a value to the current document builder
+            /// </summary>
+            /// <param name="key">the name of the value</param>
+            /// <param name="value">the value to add</param>
+            /// <returns>the current instance of document builder with the field added</returns>
+            public DocumentBuilder AddField(string key, Value value) {
+                document.Fields.Add(key, value);
+                return this;
+            }
 
-    public sealed class BatchRequest {
+            /// <summary>
+            /// This function adds values to the current document builder
+            /// </summary>
+            /// <param name="fields">array of values to add</param>
+            /// <returns>the current instance of document builder with the fields added</returns>
+            public DocumentBuilder AddFields(params (string key, Value value)[] fields) {
+                foreach ((string key, Value value) in fields) {
+                    document.Fields.Add(key, value);
+                }
+                return this;
+            }
 
-        [JsonProperty]
-        private DocumentMask mask;
-        [JsonProperty]
-        private List<string> documents;
-
-        public BatchRequest(DocumentMask mask = null, List<string> documents = null) => (this.mask, this.documents) = (mask, documents);
-
-        public override string ToString() => JsonConvert.SerializeObject(this);
-    }
-
-    public sealed class DocumentMask {
-        [JsonProperty]
-        private readonly List<string> fieldPaths;
-
-        public DocumentMask(List<string> fieldPaths = null) => this.fieldPaths = fieldPaths;
-
-        public override string ToString() => JsonConvert.SerializeObject(this);
-    }
-
-    public sealed class CollectionListIdContent {
-        [JsonProperty("pageSize")]
-        private int? PageSize;
-        [JsonProperty("pageToken")]
-        private string PageToken;
-
-        public CollectionListIdContent(int? pageSize = null, string pageToken = null) {
-            PageSize = pageSize;
-            PageToken = pageToken;
+            /// <summary>
+            /// This function builds the document
+            /// </summary>
+            /// <returns>the built document</returns>
+            public Document Build() => document;
         }
 
-        public bool ShouldSerializePageSize() => PageSize != null;
-        public bool ShouldSerializePageToken() => PageToken != null;
+        public sealed class DocumentMask {
+            [JsonProperty]
+            private readonly List<string> fieldPaths;
 
-        public override string ToString() => JsonConvert.SerializeObject(this);
+            public DocumentMask(List<string> fieldPaths = null) => this.fieldPaths = fieldPaths;
+
+            public override string ToString() => JsonConvert.SerializeObject(this);
+        }
+
+        public sealed class CollectionListIdContent {
+            [JsonProperty("pageSize")]
+            private int? PageSize;
+            [JsonProperty("pageToken")]
+            private string PageToken;
+
+            public CollectionListIdContent(int? pageSize = null, string pageToken = null) {
+                PageSize = pageSize;
+                PageToken = pageToken;
+            }
+
+            public bool ShouldSerializePageSize() => PageSize != null;
+            public bool ShouldSerializePageToken() => PageToken != null;
+
+            public override string ToString() => JsonConvert.SerializeObject(this);
+        }
+
+        public sealed class CollectionIds {
+            [JsonProperty]
+            private List<string> collectionIds;
+            [JsonProperty]
+            private string nextPageInfo;
+
+            public List<string> GetCollectionIds => collectionIds;
+            public string NextPageInfo => nextPageInfo;
+        }
+
+        public sealed class Precondition {
+            private bool? exists = null;
+            private string updateTime = null;
+
+            public Precondition(bool exists) => this.exists = exists;
+            public Precondition(string updateTime) => this.updateTime = updateTime;
+
+            public (string, object) GetQuery() => exists != null ? ((string, object))("exists", exists) : ("updateTime", updateTime);
+        }
     }
-
-    public sealed class CollectionIds {
-        [JsonProperty]
-        private List<string> collectionIds;
-        [JsonProperty]
-        private string nextPageInfo;
-
-        public List<string> GetCollectionIds => collectionIds;
-        public string NextPageInfo => nextPageInfo;
-    }
-
-    public sealed class Precondition {
-        private bool? exists = null;
-        private string updateTime = null;
-
-        public Precondition(bool exists) => this.exists = exists;
-        public Precondition(string updateTime) => this.updateTime = updateTime;
-
-        public (string, object) GetQuery() => exists != null ? ((string, object))("exists", exists) : ("updateTime", updateTime);
-    }
-
-    #endregion Helper Classes
 
     #endregion Firestore
 
