@@ -309,7 +309,6 @@ namespace Firebase {
             /// <exception cref="ArgumentException">if the path doesn't match a path to a document</exception>
             /// <returns>the reference to the document in the specified path</returns>
             public DocumentReference GetDocumentReference(string path) {
-                Console.WriteLine($"{Path}/{path}");
                 if (documentRegex.IsMatch($"{Path}/{path}")) {
                     return new DocumentReference($"{Path}/{path}");
                 }
@@ -358,7 +357,6 @@ namespace Firebase {
             /// <exception cref="ArgumentException">if the path doesn't match a path to a collection</exception>
             /// <returns>the reference to the collection in the path</returns>
             public CollectionReference Collection(string path) {
-                Console.WriteLine($"{Path}/{path}");
                 if (collectionRegex.IsMatch($"{Path}/{path}")) {
                     return new CollectionReference($"{Path}/{path}");
                 }
@@ -381,7 +379,7 @@ namespace Firebase {
             /// <returns>true if succeeded, otherwise false</returns>
             public async Task<Document> Get() {
                 HttpResponseMessage response = await client.GetAsync($"v1beta1/projects/{Firebase.ProjectId}/databases/(default)/documents{TrimPath(Path)}");
-                Console.WriteLine(await response.Content.ReadAsStringAsync());
+
                 return JsonConvert.DeserializeObject<Document>(await response.Content.ReadAsStringAsync());
             }
 
@@ -418,8 +416,9 @@ namespace Firebase {
             /// <param name="pageToken">the page token aqquired from this function response</param>
             /// <returns>the list of collections in the path</returns>
             public async Task<CollectionIds> ListCollections(int? pageSize = null, string pageToken = null) {
-                HttpResponseMessage response = await client.PostAsync($"v1beta1/projects/{Firebase.ProjectId}/databases/(default)/documents{TrimPath(Path)}:listCollectionIds", new StringContent(new CollectionListIdContent(pageSize, pageToken).ToString(), Encoding.UTF8, "application/json"));
+                HttpResponseMessage response = await client.PostAsync($"v1beta1/projects/{Firebase.ProjectId}/databases/(default)/documents{TrimPath(Path)}:listCollectionIds", new StringContent(new CollectionListIdContent(pageSize, pageToken).ToString()));
 
+                Console.WriteLine(await response.Content.ReadAsStringAsync());
                 return JsonConvert.DeserializeObject<CollectionIds>(await response.Content.ReadAsStringAsync());
             }
         }
@@ -448,11 +447,11 @@ namespace Firebase {
 
             internal Document(Dictionary<string, Value> fields = null) => this.fields = fields ?? new Dictionary<string, Value>();
 
-            public override string ToString() => JsonConvert.SerializeObject(this);
+            public override string ToString() => JsonConvert.SerializeObject(this, Formatting.Indented);
 
             public sealed class Value {
                 public enum Type {
-                    Null,
+                    None,
                     Boolean,
                     Integer,
                     Double,
@@ -467,8 +466,6 @@ namespace Firebase {
 
                 [JsonIgnore]
                 private Type type;
-                [JsonProperty("nullValue")]
-                private object NullValue;
                 [JsonProperty("booleanValue")]
                 private bool? BooleanValue;
                 [JsonProperty("integerValue")]
@@ -495,11 +492,6 @@ namespace Firebase {
                 public Value(Type type, object value = null) {
                     this.type = type;
                     switch (type) {
-                        case Type.Null: {
-                            NullValue = null;
-                            break;
-                        }
-
                         case Type.Boolean: {
                             if (value is bool b) {
                                 BooleanValue = b;
@@ -584,28 +576,16 @@ namespace Firebase {
                     }
                 }
 
-                public bool ShouldSerializeNullValue() => type == Type.Null;
-                public bool ShouldSerializeBooleanValue() => type == Type.Boolean;
-                public bool ShouldSerializeIntegerValue() => type == Type.Integer;
-                public bool ShouldSerializeDoubleValue() => type == Type.Double;
-                public bool ShouldSerializeTimestampValue() => type == Type.Timestamp;
-                public bool ShouldSerializeStringValue() => type == Type.String;
-                public bool ShouldSerializeBytesValue() => type == Type.Bytes;
-                public bool ShouldSerializeReferenceValue() => type == Type.Reference;
-                public bool ShouldSerializeGeoPointValue() => type == Type.GeoPoint;
-                public bool ShouldSerializeArrayValue() => type == Type.Array;
-                public bool ShouldSerializeMapValue() => type == Type.Map;
-
-                public bool ShouldDeserializeBooleanValue() => BooleanValue != null;
-                public bool ShouldDeserializeIntegerValue() => IntegerValue != null;
-                public bool ShouldDeserializeDoubleValue() => DoubleValue != null;
-                public bool ShouldDeserializeTimestampValue() => TimestampValue != null;
-                public bool ShouldDeserializeStringValue() => StringValue != null;
-                public bool ShouldDeserializeBytesValue() => BytesValue != null;
-                public bool ShouldDeserializeReferenceValue() => ReferenceValue != null;
-                public bool ShouldDeserializeGeoPointValue() => GeoPointValue != null;
-                public bool ShouldDeserializeArrayValue() => ArrayValue != null;
-                public bool ShouldDeserializeMapValue() => MapValue != null;
+                public bool ShouldSerializeBooleanValue() => type == Type.Boolean || BooleanValue != null;
+                public bool ShouldSerializeIntegerValue() => type == Type.Integer || IntegerValue != null;
+                public bool ShouldSerializeDoubleValue() => type == Type.Double || DoubleValue != null;
+                public bool ShouldSerializeTimestampValue() => type == Type.Timestamp || TimestampValue != null;
+                public bool ShouldSerializeStringValue() => type == Type.String || StringValue != null;
+                public bool ShouldSerializeBytesValue() => type == Type.Bytes || BytesValue != null;
+                public bool ShouldSerializeReferenceValue() => type == Type.Reference || ReferenceValue != null;
+                public bool ShouldSerializeGeoPointValue() => type == Type.GeoPoint || GeoPointValue != null;
+                public bool ShouldSerializeArrayValue() => type == Type.Array || ArrayValue != null;
+                public bool ShouldSerializeMapValue() => type == Type.Map || MapValue != null;
 
                 public class LatLon {
                     [JsonProperty]
@@ -698,7 +678,7 @@ namespace Firebase {
             public bool ShouldSerializePageSize() => PageSize != null;
             public bool ShouldSerializePageToken() => PageToken != null;
 
-            public override string ToString() => JsonConvert.SerializeObject(this);
+            public override string ToString() => JsonConvert.SerializeObject(this, Formatting.Indented);
         }
 
         public sealed class CollectionIds {
@@ -707,8 +687,12 @@ namespace Firebase {
             [JsonProperty]
             private string nextPageInfo;
 
+            [JsonIgnore]
             public List<string> GetCollectionIds => collectionIds;
+            [JsonIgnore]
             public string NextPageInfo => nextPageInfo;
+
+            public override string ToString() => JsonConvert.SerializeObject(this, Formatting.Indented);
         }
 
         public sealed class Precondition {
@@ -846,6 +830,8 @@ namespace Firebase {
         private string refreshToken;
         [JsonProperty]
         private string expiresIn;
+
+        public override string ToString() => JsonConvert.SerializeObject(this, Formatting.Indented);
     }
 
     #endregion Utilities
