@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -242,9 +243,6 @@ namespace Firebase {
         }
 
         public DocumentReference GetDocumentReference(string path = null) {
-            if (string.IsNullOrEmpty(path)) {
-                return new DocumentReference();
-            }
             if (documentRegex.IsMatch(path)) {
                 return new DocumentReference(path);
             }
@@ -300,10 +298,10 @@ namespace Firebase {
             /// <param name="documentName">name of the document, can be null</param>
             /// <param name="document">the document to create</param>
             /// <returns>the document created</returns>
-            public async Task<string> CreateDocument(string documentName, Document document) {
-                HttpResponseMessage response = await client.PostAsync($"v1beta1/projects/{Firebase.ProjectId}/databases/(default)/documents{TrimPath(Path)}/{(string.IsNullOrWhiteSpace(documentName) ? null : $"?documentId={documentName}")}", new StringContent(document.ToString()));
+            public async Task<Document> CreateDocument(string documentName, Document document) {
+                HttpResponseMessage response = await client.PostAsync($"v1/projects/{Firebase.ProjectId}/databases/(default)/documents{TrimPath(Path)}/{(string.IsNullOrWhiteSpace(documentName) ? null : $"?documentId={documentName}")}", new StringContent(document.ToString()));
 
-                return await response.Content.ReadAsStringAsync();
+                return JsonConvert.DeserializeObject<Document>(await response.Content.ReadAsStringAsync());
             }
 
             /// <summary>
@@ -333,11 +331,11 @@ namespace Firebase {
             /// <param name="pageToken">the last page token retrieved from the last fetch, can be null</param>
             /// <param name="orderBy"></param>
             /// <returns>list of the documents in the path</returns>
-            public async Task<string> ListDocuments(string collectionId = null, int? pageSize = null, string pageToken = null, string orderBy = null) {
+            public async Task<DocumentList> ListDocuments(string collectionId = null, int? pageSize = null, string pageToken = null, string orderBy = null) {
                 string query = CreateQueryString(("pageSize", pageSize), ("pageToken", pageToken), ("orderBy", orderBy));
-                HttpResponseMessage response = await client.GetAsync($"v1beta1/projects/{Firebase.ProjectId}/databases/(default)/documents{TrimPath(Path)}/{collectionId}{query}");
+                HttpResponseMessage response = await client.GetAsync($"v1/projects/{Firebase.ProjectId}/databases/(default)/documents{TrimPath(Path)}/{collectionId}{query}");
 
-                return await response.Content.ReadAsStringAsync();
+                return JsonConvert.DeserializeObject<DocumentList>(await response.Content.ReadAsStringAsync());
             }
         }
 
@@ -376,7 +374,7 @@ namespace Firebase {
             /// </summary>
             /// <returns><see langword="true"/> if the document deleted, otherwise <see langword="false"/></returns>
             public async Task<bool> DeleteDocument() {
-                HttpResponseMessage response = await client.DeleteAsync($"v1beta1/projects/{Firebase.ProjectId}/databases/(default)/documents{TrimPath(Path)}");
+                HttpResponseMessage response = await client.DeleteAsync($"v1/projects/{Firebase.ProjectId}/databases/(default)/documents{TrimPath(Path)}");
 
                 return response.IsSuccessStatusCode;
             }
@@ -386,7 +384,7 @@ namespace Firebase {
             /// </summary>
             /// <returns>true if succeeded, otherwise false</returns>
             public async Task<Document> Get() {
-                HttpResponseMessage response = await client.GetAsync($"v1beta1/projects/{Firebase.ProjectId}/databases/(default)/documents{TrimPath(Path)}");
+                HttpResponseMessage response = await client.GetAsync($"v1/projects/{Firebase.ProjectId}/databases/(default)/documents{TrimPath(Path)}");
 
                 return JsonConvert.DeserializeObject<Document>(await response.Content.ReadAsStringAsync());
             }
@@ -402,7 +400,7 @@ namespace Firebase {
             /// </summary>
             /// <param name="document">the document to set to</param>
             /// <returns>the document</returns>
-            public async Task<Document> Set(Document document) => await DeleteDocument() ? await Update(document) : null;
+            public async Task<Document> Set(Document document) => (await DeleteDocument()) ? await Update(document) : null;
 
             /// <summary>
             /// This function update the content of the current document to the specified document
@@ -412,7 +410,7 @@ namespace Firebase {
             /// <returns>the updated document</returns>
             public async Task<Document> Update(Document document, Precondition currentDocument = null) {
                 string query = CreateQueryString(currentDocument != null ? currentDocument.GetQuery() : (null, null));
-                HttpResponseMessage response = await client.PatchAsync($"v1beta1/projects/{Firebase.ProjectId}/databases/(default)/documents{TrimPath(Path)}{query}", new StringContent(document.ToString()));
+                HttpResponseMessage response = await client.PatchAsync($"v1/projects/{Firebase.ProjectId}/databases/(default)/documents{TrimPath(Path)}{query}", new StringContent(document.ToString()));
 
                 return JsonConvert.DeserializeObject<Document>(await response.Content.ReadAsStringAsync());
             }
@@ -424,9 +422,8 @@ namespace Firebase {
             /// <param name="pageToken">the page token aqquired from this function response</param>
             /// <returns>the list of collections in the path</returns>
             public async Task<CollectionIds> ListCollections(int? pageSize = null, string pageToken = null) {
-                HttpResponseMessage response = await client.PostAsync($"v1beta1/projects/{Firebase.ProjectId}/databases/(default)/documents{TrimPath(Path)}:listCollectionIds", new StringContent(new CollectionListIdContent(pageSize, pageToken).ToString()));
+                HttpResponseMessage response = await client.PostAsync($"v1/projects/{Firebase.ProjectId}/databases/(default)/documents{TrimPath(Path)}:listCollectionIds", new StringContent(new CollectionListIdContent(pageSize, pageToken).ToString()));
 
-                Console.WriteLine(await response.Content.ReadAsStringAsync());
                 return JsonConvert.DeserializeObject<CollectionIds>(await response.Content.ReadAsStringAsync());
             }
         }
@@ -435,10 +432,6 @@ namespace Firebase {
         /// This class is for Firestore document
         /// </summary>
         public sealed class Document {
-
-            [JsonIgnore]
-            private string path = null;
-
             [JsonProperty]
             private string name;
             [JsonProperty]
@@ -454,6 +447,9 @@ namespace Firebase {
             private Document() { }
 
             internal Document(Dictionary<string, Value> fields = null) => this.fields = fields ?? new Dictionary<string, Value>();
+
+            [JsonIgnore]
+            public string Name => name.Substring(name.LastIndexOf("/") + 1);
 
             public override string ToString() => JsonConvert.SerializeObject(this, Formatting.Indented);
 
@@ -497,7 +493,7 @@ namespace Firebase {
 
                 private Value() { }
 
-                public Value(Type type, object value = null) {
+                public Value(Type type, object value) {
                     this.type = type;
                     switch (type) {
                         case Type.Boolean: {
@@ -584,6 +580,22 @@ namespace Firebase {
                     }
                 }
 
+                /// <summary>
+                /// This function adds a value to the current value whether it is an array or a map
+                /// </summary>
+                /// <exception cref="NullReferenceException">if the current value is nor array niether map</exception>
+                /// <param name="value">the value to add</param>
+                /// <param name="name">the name of the value, only if the current value is a map</param>
+                public void AddValue(Value value, string name = null) {
+                    if (ArrayValue != null) {
+                        ArrayValue.AddValue(value);
+                    } else if (MapValue != null) {
+                        MapValue.AddValue(name, value);
+                    } else {
+                        throw new NullReferenceException("Type of this value is nor array niether map");
+                    }
+                }
+
                 public bool ShouldSerializeBooleanValue() => type == Type.Boolean || BooleanValue != null;
                 public bool ShouldSerializeIntegerValue() => type == Type.Integer || IntegerValue != null;
                 public bool ShouldSerializeDoubleValue() => type == Type.Double || DoubleValue != null;
@@ -610,6 +622,13 @@ namespace Firebase {
 
                     public MapValueType(Dictionary<string, Value> fields = null) => this.fields = fields ?? new Dictionary<string, Value>();
 
+                    /// <summary>
+                    /// This function adds an entry to the dictionary
+                    /// </summary>
+                    /// <param name="key">the key of the entry</param>
+                    /// <param name="value">the value of the entry</param>
+                    public void AddValue(string key, Value value) => fields.Add(key, value);
+
                     public override string ToString() => JsonConvert.SerializeObject(this);
                 }
 
@@ -618,6 +637,12 @@ namespace Firebase {
                     private List<Value> values;
 
                     public ArrayValueType(List<Value> values = null) => this.values = values ?? new List<Value>();
+
+                    /// <summary>
+                    /// This function adds an item to the array
+                    /// </summary>
+                    /// <param name="item">the item to add</param>
+                    public void AddValue(Value item) => values.Add(item);
 
                     public override string ToString() => JsonConvert.SerializeObject(this);
                 }
@@ -656,6 +681,10 @@ namespace Firebase {
                 return this;
             }
 
+            public Dictionary<string, Value> Fields => document.Fields;
+
+            public void Clear() => document.Fields.Clear();
+
             /// <summary>
             /// This function builds the document
             /// </summary>
@@ -670,6 +699,20 @@ namespace Firebase {
             public DocumentMask(List<string> fieldPaths = null) => this.fieldPaths = fieldPaths;
 
             public override string ToString() => JsonConvert.SerializeObject(this);
+        }
+
+        public sealed class DocumentList {
+            [JsonProperty]
+            private List<Document> documents;
+            [JsonProperty]
+            private string nextPageToken;
+
+            private DocumentList() { }
+
+            [JsonIgnore]
+            public List<Document> Documents => documents;
+            [JsonIgnore]
+            public string NextPageToken => nextPageToken;
         }
 
         public sealed class CollectionListIdContent {
@@ -723,8 +766,11 @@ namespace Firebase {
     /// </summary>
     public sealed class FirebaseAuth {
 
-        private static readonly HttpClient client = new HttpClient {
+        private static readonly HttpClient identityClient = new HttpClient {
             BaseAddress = new Uri("https://identitytoolkit.googleapis.com")
+        };
+        private static readonly HttpClient tokenClient = new HttpClient {
+            BaseAddress = new Uri("https://securetoken.googleapis.com")
         };
 
         internal static string IdToken {
@@ -739,7 +785,7 @@ namespace Firebase {
         } = false;
 
         internal FirebaseAuth(string apiKey) {
-            client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+            identityClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
             this.apiKey = apiKey;
         }
@@ -750,8 +796,8 @@ namespace Firebase {
         /// <param name="email">the user's email</param>
         /// <param name="password">the user's password</param>
         /// <returns>true if successfully signed in, otherwise false</returns>
-        public async Task<bool> SignIn(string email, string password) {
-            HttpResponseMessage response = await client.PostAsync($"v1/accounts:signInWithPassword?key={apiKey}", new StringContent(new UserAuth(email, password).ToString()));
+        public async Task<bool> SignInWithPasswordEmail(string email, string password) {
+            HttpResponseMessage response = await identityClient.PostAsync($"v1/accounts:signInWithPassword?key={apiKey}", new StringContent(new UserAuth(email, password).ToString()));
             if (response.IsSuccessStatusCode) {
                 firebaseUser = JsonConvert.DeserializeObject<FirebaseUser>(await response.Content.ReadAsStringAsync());
                 IdToken = firebaseUser.idToken;
@@ -770,12 +816,9 @@ namespace Firebase {
         /// <param name="password">the user's password</param>
         /// <returns>true if successfully signed up the user, otherwise false</returns>
         public async Task<FirebaseUser> SignUp(string email, string password) {
-            HttpResponseMessage response = await client.PostAsync($"v1/accounts:signUp?key={apiKey}", new StringContent(new UserAuth(email, password).ToString()));
-
-            if (response.IsSuccessStatusCode) {
-                return JsonConvert.DeserializeObject<FirebaseUser>(await response.Content.ReadAsStringAsync());
-            }
-            throw new AuthException("Email already exists");
+            HttpResponseMessage response = await identityClient.PostAsync($"v1/accounts:signUp?key={apiKey}", new StringContent(new UserAuth(email, password).ToString()));
+            Console.WriteLine(JsonConvert.DeserializeObject<FirebaseUser>(await response.Content.ReadAsStringAsync()));
+            return response.IsSuccessStatusCode ? JsonConvert.DeserializeObject<FirebaseUser>(await response.Content.ReadAsStringAsync()) : null;
         }
 
         /// <summary>
@@ -784,9 +827,27 @@ namespace Firebase {
         /// <param name="email">the user's email</param>
         /// <returns></returns>
         public async Task<bool> SendPasswordResetEmail(string email) {
-            HttpResponseMessage response = await client.PostAsync($"v1/accounts:sendOobCode?key={apiKey}", new StringContent("{" + $"\"requestType\":\"PASSWORD_RESET\",\"email\":\"{email}\"" + "}"));
+            HttpResponseMessage response = await identityClient.PostAsync($"v1/accounts:sendOobCode?key={apiKey}", new StringContent("{" + $"\"requestType\":\"PASSWORD_RESET\",\"email\":\"{email}\"" + "}"));
 
             return response.IsSuccessStatusCode;
+        }
+
+        /// <summary>
+        /// This function is used to sign in user with a refresh token granted from signin up a user or signed in user
+        /// </summary>
+        /// <param name="token">the refresh token</param>
+        /// <returns>true if succeded, otherwise false</returns>
+        public async Task<bool> SignInWithToken(string token) {
+            HttpResponseMessage response = await tokenClient.PostAsync($"v1/token?key={apiKey}", new StringContent(JsonConvert.SerializeObject(new { grant_type = "refresh_token", refreshToken = token })));
+            if (response.IsSuccessStatusCode) {
+                firebaseUser = JsonConvert.DeserializeObject<FirebaseUser>(await response.Content.ReadAsStringAsync());
+                IdToken = firebaseUser.idToken;
+                IsLoggedIn = true;
+                Firestore.client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", IdToken);
+                return true;
+            }
+            IsLoggedIn = false;
+            return false;
         }
 
         /// <summary>
@@ -794,55 +855,50 @@ namespace Firebase {
         /// </summary>
         /// <returns>the current user</returns>
         public FirebaseUser GetCurrentUser() => firebaseUser;
-    }
 
-    public class AuthException : Exception {
-        public AuthException(string message) : base(message) { }
-    }
+        /// <summary>
+        /// This class if for authenticating a firebase user (token)
+        /// </summary>
+        internal class UserAuth {
+            [JsonProperty]
+            private string email;
+            [JsonProperty]
+            private string password;
+            [JsonProperty]
+            private bool returnSecureToken = true;
 
-    #region Utilities
+            public UserAuth(string email, string password) {
+                this.email = email;
+                this.password = password;
+            }
 
-    /// <summary>
-    /// This class if for authenticating a firebase user (token)
-    /// </summary>
-    internal class UserAuth {
-        [JsonProperty]
-        private string email;
-        [JsonProperty]
-        private string password;
-        [JsonProperty]
-        private bool returnSecureToken = true;
-
-        public UserAuth(string email, string password) {
-            this.email = email;
-            this.password = password;
+            public override string ToString() => JsonConvert.SerializeObject(this);
         }
 
-        public override string ToString() => JsonConvert.SerializeObject(this);
+        /// <summary>
+        /// This class is for a firebase user details
+        /// </summary>
+        public class FirebaseUser {
+            [JsonProperty]
+            private string kind;
+            public string localId;
+            public string email;
+            public string displayName;
+            [JsonProperty]
+            internal string idToken;
+            [JsonProperty]
+            private bool registered;
+            public string refreshToken;
+            [JsonProperty]
+            private string expiresIn;
+
+            public override string ToString() => JsonConvert.SerializeObject(this, Formatting.Indented);
+        }
+
+        public class AuthException : Exception {
+            public AuthException(string message) : base(message) { }
+        }
     }
-
-    /// <summary>
-    /// This class is for a firebase user details
-    /// </summary>
-    public class FirebaseUser {
-        [JsonProperty]
-        private string kind;
-        public string localId;
-        public string email;
-        public string displayName;
-        [JsonProperty]
-        internal string idToken;
-        [JsonProperty]
-        private bool registered;
-        [JsonProperty]
-        private string refreshToken;
-        [JsonProperty]
-        private string expiresIn;
-
-        public override string ToString() => JsonConvert.SerializeObject(this, Formatting.Indented);
-    }
-
-    #endregion Utilities
 
     #endregion Authentication
 
