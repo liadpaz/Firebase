@@ -288,6 +288,10 @@ namespace Firebase {
 
             private CollectionReference() { }
 
+            /// <summary>
+            /// This function returns the Id of the current collection
+            /// </summary>
+            /// <returns>the Id of the current collection</returns>
             public string GetId() => Path.Substring(Path.LastIndexOf("/") + 1);
 
             /// <summary>
@@ -348,6 +352,10 @@ namespace Firebase {
 
             private DocumentReference() { }
 
+            /// <summary>
+            /// This function returns the Id of the current document
+            /// </summary>
+            /// <returns>the Id of the current document</returns>
             public string GetId() => Path.Substring(Path.LastIndexOf("/") + 1);
 
             /// <summary>
@@ -403,7 +411,7 @@ namespace Firebase {
             /// <param name="currentDocument">condition of the current state of the document</param>
             /// <returns>the updated document</returns>
             public async Task<Document> Update(Document document, Precondition currentDocument = null) {
-                string query = CreateQueryString(currentDocument.GetQuery());
+                string query = CreateQueryString(currentDocument != null ? currentDocument.GetQuery() : (null, null));
                 HttpResponseMessage response = await client.PatchAsync($"v1beta1/projects/{Firebase.ProjectId}/databases/(default)/documents{TrimPath(Path)}{query}", new StringContent(document.ToString()));
 
                 return JsonConvert.DeserializeObject<Document>(await response.Content.ReadAsStringAsync());
