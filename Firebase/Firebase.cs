@@ -198,7 +198,7 @@ namespace Firebase {
 
         internal Firestore() {
             if (client.BaseAddress == null) {
-                client.BaseAddress = new Uri($"https://firestore.googleapis.com/");
+                client.BaseAddress = new Uri("https://firestore.googleapis.com/");
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
             }
         }
