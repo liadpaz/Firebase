@@ -13,7 +13,7 @@ using Newtonsoft.Json.Serialization;
 using static Firebase.Firestore.Document;
 
 namespace Firebase {
-#pragma warning disable IDE0044, IDE0051 , IDE0052, 169, 414, 649
+#pragma warning disable IDE0044, IDE0051, IDE0052, 169, 414, 649
     #region Firebase
 
     #region General Firebase
@@ -34,7 +34,7 @@ namespace Firebase {
         internal static string ApiKey {
             private set;
             get;
-        } = null;
+        }
 
         /// <summary>
         /// This function initializes the only Firebase instance on the app
@@ -92,8 +92,8 @@ namespace Firebase {
         /// <summary>
         /// This function returns the reference to the Firebase Database at the <code>child</code> child
         /// </summary>
-        /// <param name="child">the child</param>
-        /// <returns>the reference to the Firebase Database at the <code>child</code> child</returns>
+        /// <param name="child">The child</param>
+        /// <returns>The reference to the Firebase Database at the <code>child</code> child</returns>
         public DatabaseReference GetReference(string child = null) => new DatabaseReference($"{child}");
     }
 
@@ -108,7 +108,7 @@ namespace Firebase {
         /// <summary>
         /// Internal constructor that can only be called from within this library, sets the child of the database reference
         /// </summary>
-        /// <param name="child">the database URL</param>
+        /// <param name="child">The database URL</param>
         internal DatabaseReference(string child = null) {
             this.child = child;
             if (client.BaseAddress == null) {
@@ -125,8 +125,8 @@ namespace Firebase {
         /// <summary>
         /// This function returns the data from the database reference
         /// </summary>
-        /// <returns>the data in the database</returns
-        public async Task<string> Read() {
+        /// <returns>The data in the database</returns
+        public async Task<string> ReadAync() {
             string auth = (Firebase.GetInstance().FirebaseAuth.GetCurrentUser().idToken ?? null)?.Insert(0, "&auth=");
             HttpResponseMessage response = await client.GetAsync($"{child}.json?print=pretty{auth}");
 
@@ -134,11 +134,22 @@ namespace Firebase {
         }
 
         /// <summary>
+        /// This function returns the data from the database reference
+        /// </summary>
+        /// <returns>The data in the database</returns
+        public async Task<T> ReadAync<T>() where T : class {
+            string auth = (Firebase.GetInstance().FirebaseAuth.GetCurrentUser().idToken ?? null)?.Insert(0, "&auth=");
+            HttpResponseMessage response = await client.GetAsync($"{child}.json?print=pretty{auth}");
+
+            return response.IsSuccessStatusCode ? JsonConvert.DeserializeObject<T>(await response.Content.ReadAsStringAsync()) : null;
+        }
+
+        /// <summary>
         /// This function writes data in the database reference; return true if succeeded otherwise false
         /// </summary>
-        /// <param name="data">the data to write</param>
-        /// <returns>true if succeeded otherwise false</returns>
-        public async Task<bool> Write(string data) {
+        /// <param name="data">The data to write</param>
+        /// <returns><see langword="true"/> if succeeded otherwise <see langword="false"/></returns>
+        public async Task<bool> WriteAsync(string data) {
             string auth = (Firebase.GetInstance().FirebaseAuth.GetCurrentUser().idToken ?? null)?.Insert(0, "?auth=");
             HttpResponseMessage response = await client.PutAsync($"{child}.json{auth}", new StringContent(data));
 
@@ -148,8 +159,8 @@ namespace Firebase {
         /// <summary>
         /// This function deletes the data in the child in the database
         /// </summary>
-        /// <returns>true if succeeded otherwise false</returns>
-        public async Task<bool> Delete() {
+        /// <returns><see langword="true"/> if succeeded otherwise <see langword="false"/></returns>
+        public async Task<bool> DeleteAsync() {
             string auth = (Firebase.GetInstance().FirebaseAuth.GetCurrentUser().idToken ?? null)?.Insert(0, "?auth=");
             HttpResponseMessage response = await client.DeleteAsync($"{child}.json{auth}");
 
@@ -159,26 +170,26 @@ namespace Firebase {
         /// <summary>
         /// This function returns a database reference to the <c>child</c> of the current reference
         /// </summary>
-        /// <param name="child">the child</param>
-        /// <returns>database reference to <c>child</c> of the current reference</returns>
+        /// <param name="child">The child</param>
+        /// <returns>Database reference to <paramref name="child"/> of the current reference</returns>
         public DatabaseReference Child(string child) => new DatabaseReference($"{this.child}/{child}");
 
         /// <summary>
         /// This function returns the reference to the root of the database
         /// </summary>
-        /// <returns>the reference to the root of the database</returns>
+        /// <returns>The reference to the root of the database</returns>
         public DatabaseReference Root => new DatabaseReference();
 
         /// <summary>
         /// This function returns the reference to the parent of the current reference
         /// </summary>
-        /// <returns>the reference to the parent of the current reference</returns>
+        /// <returns>The reference to the parent of the current reference</returns>
         public DatabaseReference GetParent() => new DatabaseReference(child.Substring(0, child.LastIndexOf('/')));
 
         /// <summary>
         /// This fuction returns the database reference as string, it shows the path of the reference
         /// </summary>
-        /// <returns>the database reference as string</returns>
+        /// <returns>The database reference as string</returns>
         public override string ToString() => $"{client.BaseAddress}{child}";
     }
 
@@ -187,11 +198,11 @@ namespace Firebase {
     #region Firestore
 
     /// <summary>
-    /// This class if for the Firestore database
+    /// This class is for the Firestore database
     /// </summary>
     public sealed class Firestore {
 
-        internal readonly static Regex documentRegex = new Regex("^[^/]+([/][^/]*)(([/][^/]*){2})*[^/]$");
+        internal readonly static Regex documentRegex = new Regex("^[^/]+([/][^/]+)(([/][^/]+){2})*$");
         internal readonly static Regex collectionRegex = new Regex("^[^/]+(([/][^/]+){2})*$");
 
         internal static readonly HttpClient client = new HttpClient();
@@ -200,6 +211,7 @@ namespace Firebase {
             if (client.BaseAddress == null) {
                 client.BaseAddress = new Uri("https://firestore.googleapis.com/");
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/x-www-form-urlencoded"));
             }
         }
 
@@ -208,11 +220,8 @@ namespace Firebase {
         /// </summary>
         /// <param name="path">The path to the collection</param>
         /// <exception cref="ArgumentException">If the path is invalid</exception>
-        /// <returns>The reference to the collection in the path</returns>
+        /// <returns>The reference to the collection in the <paramref name="path"/>"/></returns>
         public CollectionReference GetCollectionReference(string path = null) {
-            if (string.IsNullOrEmpty(path)) {
-                return new CollectionReference();
-            }
             if (collectionRegex.IsMatch(path)) {
                 return new CollectionReference(path);
             }
@@ -224,7 +233,7 @@ namespace Firebase {
         /// </summary>
         /// <param name="path">The path to the document</param>
         /// <exception cref="ArgumentException">If the path is invalid</exception>
-        /// <returns>The reference to the document in the path</returns>
+        /// <returns>The reference to the document in the <paramref name="path"/></returns>
         public DocumentReference GetDocumentReference(string path = null) {
             if (documentRegex.IsMatch(path)) {
                 return new DocumentReference(path);
@@ -245,19 +254,19 @@ namespace Firebase {
         }
 
         /// <summary>
-        /// This function trims the path
+        /// This function adds a leading slash to the path
         /// </summary>
         /// <param name="path">The path</param>
-        /// <returns>The trimmed path</returns>
+        /// <returns>The path with added leading slash</returns>
         /// <example>Input: path/to/document => Output: /path/to/document</example>
-        private static string TrimPath(string path = null) => (path ?? null)?.Insert(0, "/");
+        private static string AddLeadingSlash(string path = null) => (path ?? null)?.Insert(0, "/");
 
         /// <summary>
-        /// This function trims the last path piece
+        /// This function gets the relative path (parent)
         /// </summary>
-        /// <param name="path">The path to trim</param>
-        /// <returns>The path w/o it's last piece</returns>
-        private static string TrimLastPathPiece(string path) => path.Substring(0, path.LastIndexOf("/"));
+        /// <param name="path">The path</param>
+        /// <returns>The relative path (path)</returns>
+        private static string GetRelativePath(string path) => path.Substring(0, path.LastIndexOf("/"));
 
         /// <summary>
         /// This class is for Firestore collection reference
@@ -273,17 +282,28 @@ namespace Firebase {
             /// <summary>
             /// This function returns the Id of the current collection
             /// </summary>
-            /// <returns>the Id of the current collection</returns>
+            /// <returns>The Id of the current collection</returns>
             public string GetId() => Path.Substring(Path.LastIndexOf("/") + 1);
 
             /// <summary>
             /// This function creates a document in the Firestore database
             /// </summary>
-            /// <param name="documentName">name of the document, can be null</param>
-            /// <param name="document">the document to create</param>
-            /// <returns>the document created</returns>
-            public async Task<Document> CreateDocument(string documentName, Document document) {
-                HttpResponseMessage response = await client.PostAsync($"v1/projects/{Firebase.ProjectId}/databases/(default)/documents{TrimPath(Path)}/{(documentName ?? null)?.Insert(0, "?documentId=")}", new StringContent(document.ToString()));
+            /// <param name="documentName">Name of the document, can be null</param>
+            /// <param name="document">The document to create</param>
+            /// <returns>The created document</returns>
+            public async Task<Document> CreateDocumentAsync(string documentName, Document document) {
+                HttpResponseMessage response = await client.PostAsync($"v1/projects/{Firebase.ProjectId}/databases/(default)/documents{AddLeadingSlash(Path)}/{(documentName ?? null)?.Insert(0, "?documentId=")}", new StringContent(document.ToString()));
+
+                return JsonConvert.DeserializeObject<Document>(await response.Content.ReadAsStringAsync());
+            }
+
+            /// <summary>
+            /// This function creates a document in the Firestore database with a random name
+            /// </summary>
+            /// <param name="document">The document to create</param>
+            /// <returns>The created document</returns>
+            public async Task<Document> CreateDocumentAsync(Document document) {
+                HttpResponseMessage response = await client.PostAsync($"v1/projects/{Firebase.ProjectId}/databases/(default)/documents{AddLeadingSlash(Path)}", new StringContent(document.ToString()));
 
                 return JsonConvert.DeserializeObject<Document>(await response.Content.ReadAsStringAsync());
             }
@@ -291,9 +311,9 @@ namespace Firebase {
             /// <summary>
             /// This function returns the reference to the document in the specified path
             /// </summary>
-            /// <param name="path">the path to the document</param>
-            /// <exception cref="ArgumentException">if the path doesn't match a path to a document</exception>
-            /// <returns>the reference to the document in the specified path</returns>
+            /// <param name="path">The path to the document</param>
+            /// <exception cref="ArgumentException">If the path doesn't match a path to a document</exception>
+            /// <returns>The <see cref="DocumentReference"/> to the document in <paramref name="path"/></returns>
             public DocumentReference GetDocumentReference(string path) {
                 if (documentRegex.IsMatch($"{Path}/{path}")) {
                     return new DocumentReference($"{Path}/{path}");
@@ -302,10 +322,10 @@ namespace Firebase {
             }
 
             /// <summary>
-            /// This function returns the <code>DocumentReference</code> parent of the current document reference
+            /// This function returns the <see cref="DocumentReference"/> parent of the current document reference
             /// </summary>
-            /// <returns>the <code>DocumentReference</code> parent of the current document reference</returns>
-            public DocumentReference GetParent() => new DocumentReference(TrimLastPathPiece(Path));
+            /// <returns>The <see cref="DocumentReference"/> parent of the current document reference</returns>
+            public DocumentReference GetParent() => new DocumentReference(GetRelativePath(Path));
 
             /// <summary>
             /// This function gets the list of the documents in the current path
@@ -315,9 +335,9 @@ namespace Firebase {
             /// <param name="pageToken">The last page token retrieved from the last fetch, can be null</param>
             /// <param name="orderBy">The order parameter</param>
             /// <returns>List of the documents in the path</returns>
-            public async Task<DocumentList> ListDocuments(string collectionId = null, int? pageSize = null, string pageToken = null, string orderBy = null) {
+            public async Task<DocumentList> ListDocumentsAsync(string collectionId = null, int? pageSize = null, string pageToken = null, string orderBy = null) {
                 string query = CreateQueryString(("pageSize", pageSize), ("pageToken", pageToken), ("orderBy", orderBy));
-                HttpResponseMessage response = await client.GetAsync($"v1/projects/{Firebase.ProjectId}/databases/(default)/documents{TrimPath(Path)}/{collectionId}{query}");
+                HttpResponseMessage response = await client.GetAsync($"v1/projects/{Firebase.ProjectId}/databases/(default)/documents{AddLeadingSlash(Path)}/{collectionId}{query}");
 
                 return JsonConvert.DeserializeObject<DocumentList>(await response.Content.ReadAsStringAsync());
             }
@@ -343,9 +363,9 @@ namespace Firebase {
             /// <summary>
             /// This function returns the reference to the sub collection in the path specified
             /// </summary>
-            /// <param name="path">the path of the collection</param>
-            /// <exception cref="ArgumentException">if the path doesn't match a path to a collection</exception>
-            /// <returns>the reference to the collection in the path</returns>
+            /// <param name="path">The path of the collection</param>
+            /// <exception cref="ArgumentException">If the path doesn't match a path to a collection</exception>
+            /// <returns>The reference to the collection in the path</returns>
             public CollectionReference Collection(string path) {
                 if (collectionRegex.IsMatch($"{Path}/{path}")) {
                     return new CollectionReference($"{Path}/{path}");
@@ -365,8 +385,8 @@ namespace Firebase {
             /// This function deletes the current document from Firestore database
             /// </summary>
             /// <returns><see langword="true"/> if the document deleted, otherwise <see langword="false"/></returns>
-            public async Task<bool> DeleteDocument() {
-                HttpResponseMessage response = await client.DeleteAsync($"v1/projects/{Firebase.ProjectId}/databases/(default)/documents{TrimPath(Path)}");
+            public async Task<bool> DeleteDocumentAsync() {
+                HttpResponseMessage response = await client.DeleteAsync($"v1/projects/{Firebase.ProjectId}/databases/(default)/documents{AddLeadingSlash(Path)}");
 
                 return response.IsSuccessStatusCode;
             }
@@ -375,24 +395,25 @@ namespace Firebase {
             /// This function updates the current document from the database
             /// </summary>
             /// <returns><see langword="true"/> if succeeded, otherwise <see langword="false"/></returns>
-            public async Task<Document> Get() {
-                HttpResponseMessage response = await client.GetAsync($"v1/projects/{Firebase.ProjectId}/databases/(default)/documents{TrimPath(Path)}");
+            public async Task<Document> GetAsync() {
+                HttpResponseMessage response = await client.GetAsync($"v1/projects/{Firebase.ProjectId}/databases/(default)/documents{AddLeadingSlash(Path)}");
 
-                return JsonConvert.DeserializeObject<Document>(await response.Content.ReadAsStringAsync());
+                Document doc = JsonConvert.DeserializeObject<Document>(await response.Content.ReadAsStringAsync());
+                return doc.Exists ? doc : null;
             }
 
             /// <summary>
-            /// This function returns the <code>CollectionReference</code> parent of the current document reference
+            /// This function returns the <see cref="CollectionReference"/> parent of the current document reference
             /// </summary>
-            /// <returns>The CollectionReference parent of the current document reference</returns>
-            public CollectionReference GetParent() => new CollectionReference(TrimLastPathPiece(Path));
+            /// <returns>The <see cref="CollectionReference"/> parent of the current document reference</returns>
+            public CollectionReference GetParent() => new CollectionReference(GetRelativePath(Path));
 
             /// <summary>
             /// This function sets the content of the current document to the specified document, it overrides any content that pre-existed
             /// </summary>
             /// <param name="document">The document to set to</param>
             /// <returns>The content of the document</returns>
-            public async Task<Document> Set(Document document) => (await DeleteDocument()) ? await Update(document) : null;
+            public async Task<Document> SetAsync(Document document) => (await DeleteDocumentAsync()) ? await UpdateAsync(document) : null;
 
             /// <summary>
             /// This function update the content of the current document to the specified document
@@ -400,9 +421,9 @@ namespace Firebase {
             /// <param name="document">The document to update to</param>
             /// <param name="currentDocument">Condition of the current state of the document</param>
             /// <returns>The updated document</returns>
-            public async Task<Document> Update(Document document, Precondition currentDocument = null) {
+            public async Task<Document> UpdateAsync(Document document, Precondition currentDocument = null) {
                 string query = CreateQueryString(currentDocument != null ? currentDocument.GetQuery() : (null, null));
-                HttpResponseMessage response = await client.PatchAsync($"v1/projects/{Firebase.ProjectId}/databases/(default)/documents{TrimPath(Path)}{query}", new StringContent(document.ToString()));
+                HttpResponseMessage response = await client.PatchAsync($"v1/projects/{Firebase.ProjectId}/databases/(default)/documents{AddLeadingSlash(Path)}{query}", new StringContent(document.ToString()));
 
                 return JsonConvert.DeserializeObject<Document>(await response.Content.ReadAsStringAsync());
             }
@@ -413,8 +434,8 @@ namespace Firebase {
             /// <param name="pageSize">The max number of collections to show</param>
             /// <param name="pageToken">The page token aqquired from this function response</param>
             /// <returns>The list of collections in the path</returns>
-            public async Task<CollectionIds> ListCollections(int? pageSize = null, string pageToken = null) {
-                HttpResponseMessage response = await client.PostAsync($"v1/projects/{Firebase.ProjectId}/databases/(default)/documents{TrimPath(Path)}:listCollectionIds", new StringContent(new CollectionListIdContent(pageSize, pageToken).ToString()));
+            public async Task<CollectionIds> ListCollectionsAsync(int? pageSize = null, string pageToken = null) {
+                HttpResponseMessage response = await client.PostAsync($"v1/projects/{Firebase.ProjectId}/databases/(default)/documents{AddLeadingSlash(Path)}:listCollectionIds", new StringContent(new CollectionListIdContent(pageSize, pageToken).ToString()));
 
                 return JsonConvert.DeserializeObject<CollectionIds>(await response.Content.ReadAsStringAsync());
             }
@@ -454,6 +475,9 @@ namespace Firebase {
             }
 
             [JsonIgnore]
+            public bool Exists => fields != null && name != null;
+
+            [JsonIgnore]
             public string Name => name.Substring(name.LastIndexOf("/") + 1);
 
             public override string ToString() => JsonConvert.SerializeObject(this, Formatting.Indented);
@@ -480,6 +504,11 @@ namespace Firebase {
                 }
 
                 [JsonIgnore]
+                public object Object {
+                    get;
+                    private set;
+                }
+                [JsonIgnore]
                 private Type type;
                 [JsonProperty("booleanValue")]
                 private bool? BooleanValue;
@@ -502,9 +531,6 @@ namespace Firebase {
                 [JsonProperty("mapValue")]
                 private MapValueType MapValue;
 
-                /// <summary>
-                /// Private constructor so the user won't be able to instantiate this class
-                /// </summary>
                 private Value() { }
 
                 /// <summary>
@@ -513,6 +539,7 @@ namespace Firebase {
                 /// <param name="type">The type of the value</param>
                 /// <param name="value">The value of the value</param>
                 public Value(Type type, object value) {
+                    Object = value;
                     this.type = type;
                     switch (type) {
                         case Type.Boolean: {
@@ -599,6 +626,11 @@ namespace Firebase {
                     }
                 }
 
+                public override string ToString() => $"{type}: {Object}";
+
+                public object GetValue() => Object;
+                public T GetValue<T>() => (T)Object;
+
                 /// <summary>
                 /// This function adds a value to the current value whether it is an array or a map
                 /// </summary>
@@ -618,43 +650,113 @@ namespace Firebase {
                 /// <summary>
                 /// This function is for the json serialization
                 /// </summary>
-                public bool ShouldSerializeBooleanValue() => type == Type.Boolean || BooleanValue != null;
+                public bool ShouldSerializeBooleanValue() {
+                    if (type == Type.Boolean || BooleanValue != null) {
+                        type = Type.Boolean;
+                        Object = BooleanValue;
+                        return true;
+                    }
+                    return false;
+                }
                 /// <summary>
                 /// This function is for the json serialization
                 /// </summary>
-                public bool ShouldSerializeIntegerValue() => type == Type.Integer || IntegerValue != null;
+                public bool ShouldSerializeIntegerValue() {
+                    if (type == Type.Integer || IntegerValue != null) {
+                        type = Type.Integer;
+                        Object = IntegerValue;
+                        return true;
+                    }
+                    return false;
+                }
                 /// <summary>
                 /// This function is for the json serialization
                 /// </summary>
-                public bool ShouldSerializeDoubleValue() => type == Type.Double || DoubleValue != null;
+                public bool ShouldSerializeDoubleValue() {
+                    if (type == Type.Double || DoubleValue != null) {
+                        type = Type.Double;
+                        Object = DoubleValue;
+                        return true;
+                    }
+                    return false;
+                }
                 /// <summary>
                 /// This function is for the json serialization
                 /// </summary>
-                public bool ShouldSerializeTimestampValue() => type == Type.Timestamp || TimestampValue != null;
+                public bool ShouldSerializeTimestampValue() {
+                    if (type == Type.Timestamp || TimestampValue != null) {
+                        type = Type.Timestamp;
+                        Object = TimestampValue;
+                        return true;
+                    }
+                    return false;
+                }
                 /// <summary>
                 /// This function is for the json serialization
                 /// </summary>
-                public bool ShouldSerializeStringValue() => type == Type.String || StringValue != null;
+                public bool ShouldSerializeStringValue() {
+                    if (type == Type.String || StringValue != null) {
+                        type = Type.String;
+                        Object = StringValue;
+                        return true;
+                    }
+                    return false;
+                }
                 /// <summary>
                 /// This function is for the json serialization
                 /// </summary>
-                public bool ShouldSerializeBytesValue() => type == Type.Bytes || BytesValue != null;
+                public bool ShouldSerializeBytesValue() {
+                    if (type == Type.Bytes || BytesValue != null) {
+                        type = Type.Bytes;
+                        Object = BytesValue;
+                        return true;
+                    }
+                    return false;
+                }
                 /// <summary>
                 /// This function is for the json serialization
                 /// </summary>
-                public bool ShouldSerializeReferenceValue() => type == Type.Reference || ReferenceValue != null;
+                public bool ShouldSerializeReferenceValue() {
+                    if (type == Type.Reference || ReferenceValue != null) {
+                        type = Type.Reference;
+                        Object = ReferenceValue;
+                        return true;
+                    }
+                    return false;
+                }
                 /// <summary>
                 /// This function is for the json serialization
                 /// </summary>
-                public bool ShouldSerializeGeoPointValue() => type == Type.GeoPoint || GeoPointValue != null;
+                public bool ShouldSerializeGeoPointValue() {
+                    if (type == Type.GeoPoint || GeoPointValue != null) {
+                        type = Type.GeoPoint;
+                        Object = GeoPointValue;
+                        return true;
+                    }
+                    return false;
+                }
                 /// <summary>
                 /// This function is for the json serialization
                 /// </summary>
-                public bool ShouldSerializeArrayValue() => type == Type.Array || ArrayValue != null;
+                public bool ShouldSerializeArrayValue() {
+                    if (type == Type.Array || ArrayValue != null) {
+                        type = Type.Array;
+                        Object = ArrayValue;
+                        return true;
+                    }
+                    return false;
+                }
                 /// <summary>
                 /// This function is for the json serialization
                 /// </summary>
-                public bool ShouldSerializeMapValue() => type == Type.Map || MapValue != null;
+                public bool ShouldSerializeMapValue() {
+                    if (type == Type.Map || MapValue != null) {
+                        type = Type.Map;
+                        Object = MapValue;
+                        return true;
+                    }
+                    return false;
+                }
 
                 /// <summary>
                 /// This class is for the LatLon value for a value in document
@@ -683,6 +785,11 @@ namespace Firebase {
                     /// <param name="key">The key of the entry</param>
                     /// <param name="value">The value of the entry</param>
                     public void AddValue(string key, Value value) => fields.Add(key, value);
+
+                    [JsonIgnore]
+                    public Dictionary<string, Value> Fields => fields;
+
+                    public override string ToString() => JsonConvert.SerializeObject(this);
                 }
 
                 /// <summary>
@@ -699,6 +806,11 @@ namespace Firebase {
                     /// </summary>
                     /// <param name="item">The item to add</param>
                     public void AddValue(Value item) => values.Add(item);
+
+                    [JsonIgnore]
+                    public List<Value> Values => values;
+
+                    public override string ToString() => JsonConvert.SerializeObject(this);
                 }
             }
         }
@@ -765,8 +877,7 @@ namespace Firebase {
             /// </summary>
             /// <returns>The started transaction</returns>
             public async Task<Transaction> StartTransaction() {
-                string authString = (Firebase.GetInstance().FirebaseAuth.GetCurrentUser().idToken ?? null)?.Insert(0, "?access_token=");
-                HttpResponseMessage response = await client.PostAsync($"v1/projects/{Firebase.ProjectId}/databases/(default)/documents:beginTransaction{authString}", new StringContent(options.ToString()));
+                HttpResponseMessage response = await client.PostAsync($"v1/projects/{Firebase.ProjectId}/databases/(default)/documents:beginTransaction", new StringContent(options.ToString()));
 
                 if (response.IsSuccessStatusCode) {
                     var pattern = new { transaction = "" };
@@ -875,8 +986,7 @@ namespace Firebase {
             /// </summary>
             /// <returns><see langword="true"/> if committed successfully, otherwise <see langword="false"/></returns>
             public async Task<bool> Commit() {
-                string authString = (Firebase.GetInstance().FirebaseAuth.GetCurrentUser().idToken ?? null)?.Insert(0, "?access_token=");
-                HttpResponseMessage response = await client.PostAsync($"v1/projects/{Firebase.ProjectId}/databases/(default)/documents:commit{authString}", new StringContent(ToString()));
+                HttpResponseMessage response = await client.PostAsync($"v1/projects/{Firebase.ProjectId}/databases/(default)/documents:commit", new StringContent(ToString()));
 
                 return response.IsSuccessStatusCode;
             }
@@ -942,10 +1052,14 @@ namespace Firebase {
 
             private DocumentList() { }
 
+            public DocumentList(List<Document> doc) => documents = doc;
+
             [JsonIgnore]
             public List<Document> Documents => documents;
             [JsonIgnore]
             public string NextPageToken => nextPageToken;
+
+            public override string ToString() => JsonConvert.SerializeObject(this, Formatting.Indented);
         }
 
         /// <summary>
@@ -1049,15 +1163,15 @@ namespace Firebase {
         /// <param name="email">The user's email</param>
         /// <param name="password">The user's password</param>
         /// <returns><see langword="true"/> if successfully signed in, otherwise <see langword="false"/></returns>
-        public async Task<bool> SignInWithPasswordEmail(string email, string password) {
+        public async Task<FirebaseUser> SignInWithPasswordEmailAsync(string email, string password) {
             HttpResponseMessage response = await identityClient.PostAsync($"v1/accounts:signInWithPassword?key={apiKey}", new StringContent(UserAuth(email, password)));
             if (response.IsSuccessStatusCode) {
                 firebaseUser = JsonConvert.DeserializeObject<FirebaseUser>(await response.Content.ReadAsStringAsync());
                 Firestore.client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", firebaseUser.idToken);
-                return true;
+                return firebaseUser;
             }
             firebaseUser = null;
-            return false;
+            return null;
         }
 
         /// <summary>
@@ -1066,7 +1180,7 @@ namespace Firebase {
         /// <param name="email">The user's email</param>
         /// <param name="password">The user's password</param>
         /// <returns><see langword="true"/> if successfully signed up the user, otherwise <see langword="false"/></returns>
-        public async Task<FirebaseUser> SignUp(string email, string password) {
+        public async Task<FirebaseUser> SignUpAsync(string email, string password) {
             HttpResponseMessage response = await identityClient.PostAsync($"v1/accounts:signUp?key={apiKey}", new StringContent(UserAuth(email, password)));
 
             return response.IsSuccessStatusCode ? JsonConvert.DeserializeObject<FirebaseUser>(await response.Content.ReadAsStringAsync()) : null;
@@ -1077,7 +1191,7 @@ namespace Firebase {
         /// </summary>
         /// <param name="email">The user's email</param>
         /// <returns><see langword="true"/> if the email was sent, otherwise <see langword="false"/></returns>
-        public async Task<bool> SendPasswordResetEmail(string email) {
+        public async Task<bool> SendPasswordResetEmailAsync(string email) {
             HttpResponseMessage response = await identityClient.PostAsync($"v1/accounts:sendOobCode?key={apiKey}", new StringContent(JsonConvert.SerializeObject(new { requestType = "PASSWORD_RESET", email })));
 
             return response.IsSuccessStatusCode;
@@ -1088,15 +1202,15 @@ namespace Firebase {
         /// </summary>
         /// <param name="token">The refresh token</param>
         /// <returns><see langword="true"/> if succeded, otherwise <see langword="false"/></returns>
-        public async Task<bool> SignInWithToken(string token) {
+        public async Task<FirebaseUser> SignInWithTokenAsync(string token) {
             HttpResponseMessage response = await tokenClient.PostAsync($"v1/token?key={apiKey}", new StringContent(JsonConvert.SerializeObject(new { grant_type = "refresh_token", refreshToken = token })));
             if (response.IsSuccessStatusCode) {
                 firebaseUser = JsonConvert.DeserializeObject<FirebaseUser>(await response.Content.ReadAsStringAsync());
                 Firestore.client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", firebaseUser.idToken);
-                return true;
+                return firebaseUser;
             }
             firebaseUser = null;
-            return false;
+            return null;
         }
 
         /// <summary>
@@ -1106,12 +1220,17 @@ namespace Firebase {
         public FirebaseUser GetCurrentUser() => firebaseUser;
 
         /// <summary>
+        /// This function logs the user out
+        /// </summary>
+        public void SignOut() => firebaseUser = null;
+
+        /// <summary>
         /// This function returns a new user for a user request content
         /// </summary>
         /// <param name="email">The user's email</param>
         /// <param name="password">The user's password</param>
         /// <returns>The user in a JSON format</returns>
-        internal static string UserAuth(string email, string password) => JsonConvert.SerializeObject(new { email, password, returnSecureToken = true });
+        private static string UserAuth(string email, string password) => JsonConvert.SerializeObject(new { email, password, returnSecureToken = true });
 
         /// <summary>
         /// This class is for a firebase user details
