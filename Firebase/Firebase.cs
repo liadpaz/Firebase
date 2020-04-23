@@ -302,11 +302,7 @@ namespace Firebase {
             /// </summary>
             /// <param name="document">The document to create</param>
             /// <returns>The created document</returns>
-            public async Task<Document> CreateDocumentAsync(Document document) {
-                HttpResponseMessage response = await client.PostAsync($"v1/projects/{Firebase.ProjectId}/databases/(default)/documents{AddLeadingSlash(Path)}", new StringContent(document.ToString()));
-
-                return JsonConvert.DeserializeObject<Document>(await response.Content.ReadAsStringAsync());
-            }
+            public async Task<Document> CreateDocumentAsync(Document document) => await CreateDocumentAsync(null, document);
 
             /// <summary>
             /// This function returns the reference to the document in the specified path
@@ -366,7 +362,7 @@ namespace Firebase {
             /// <param name="path">The path of the collection</param>
             /// <exception cref="ArgumentException">If the path doesn't match a path to a collection</exception>
             /// <returns>The reference to the collection in the path</returns>
-            public CollectionReference Collection(string path) {
+            public CollectionReference GetCollectionReference(string path) {
                 if (collectionRegex.IsMatch($"{Path}/{path}")) {
                     return new CollectionReference($"{Path}/{path}");
                 }
