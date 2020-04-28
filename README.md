@@ -3,7 +3,7 @@ This is a client library for Firebase in C# 8.0 in .NET Core 3.1.
 # Usage
 
 ## General Firebase
-Initialize firebase with the `Firebase.InitializeFirebase(string projectId, string apiKey)` method with your project id and WebApi as parameters.
+Initialize firebase with the `Firebase.InitializeFirebase(string projectId, string apiKey)` method with your project id and WebApi key as parameters.
 
 After this you can get the firebase instance with the `Firebase.GetInstance()` method.
 
