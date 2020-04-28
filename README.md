@@ -29,3 +29,24 @@ To write data use the `DatabaseReference.WriteAsync(object data)` method to writ
 To delete data use the `DatabaseReference.DeleteAync()` method.
 
 You can get to the root reference of your database with the `DatabaseReference.Root`, and get to a child reference with the `DatabaseReference.Child(string child)` method and to the parent with the `DatabaseReference.GetParent()` method.
+
+## Firestore
+Get a reference to a collection with the `GetCollectionReference(string path)` method and a reference to a document with the `GetDocumentReference(string path)` method of a firestore instance you have retrieved from a `Firebase` instance.
+
+### CollectionReference
+You can create a document in the collection with the `CollectionReference.CreateDocumentAsync(string documentName, Document document)` method to create a document with the document name and document as parameters. If you don't want to name the document you can use the `CollectionReference.CreateDocumentAsync(Document document)` method and Firestore will assign a random name to the document.
+
+You can list the documents in the collection with the `CollectionReference.ListDocumentsAsync(string collectionId = null, int? pageSize = null, string pageToken = null, string orderBy = null)` method.
+
+You can get the parent document of the collection with the `CollectionReference.GetParent()` method and get a document reference with the `CollectionReference.GetDocumentReference(string path)` method.
+
+You can get the id of the collection with the `CollectionReference.GetId()` method.
+
+### DocumentReference
+You can get the document with the `DocumentReference.GetAsync()` method.
+
+You can set (override) the document with the `DocumentReference.SetAsync(Document document)` method. Or you can update the document with the `DocumentReference.UpdateAsync(Document document, Precondition currentDocument = null)` method.
+
+You can list the documents in the collection with the `DocumentReference.ListCollectionsAsync(int? pageSize = null, string pageToken = null)` method.
+
+You can get a reference to a sub-collection with the `DocumentReference.GetAsync()` method, you can also get the name of the document with the `DocumentReference.GetName()`method. And you can get the parent collection with the `DocumentReference.GetParent()` method.
